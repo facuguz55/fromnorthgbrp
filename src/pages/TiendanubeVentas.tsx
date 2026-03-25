@@ -116,9 +116,9 @@ export default function TiendanubeVentas() {
       setLastRefreshed(new Date());
     } catch (err: any) {
       const msg = String(err.message ?? err);
-      if (msg.includes('TOKEN_INVALID'))  setError('Token inválido. Verificá el Access Token en Configuración.');
-      else if (msg.includes('STORE_INVALID')) setError('Store ID inválido. Verificá el ID en Configuración.');
-      else setError('No se pudo conectar con TiendaNube. Intentá de nuevo.');
+      if (msg.includes('TOKEN_INVALID'))  setError(`Token inválido. Verificá el Access Token en Configuración. (${msg})`);
+      else if (msg.includes('STORE_INVALID')) setError(`Store ID inválido. Verificá el número en Configuración. (${msg})`);
+      else setError(`Error conectando con TiendaNube: ${msg}`);
     } finally {
       setLoading(false);
     }

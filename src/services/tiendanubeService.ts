@@ -107,13 +107,55 @@ export function paymentStatusClass(s: TNOrder['payment_status']): string {
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 
+const TN_BASE = 'https://api.tiendanube.com/v1';
+const TN_HEADERS = (token: string) => ({
+  Authentication: `bearer ${token}`,
+  'User-Agent': 'NovaDashboard (contact@fromnorthgb.com)',
+  'Content-Type': 'application/json',
+});
+
+async function handleTNResponse(res: Response): Promise<{ orders: TNOrder[]; hasMore: boolean }> {
+  if (!res.ok) {
+    let detail = '';
+    try { detail = JSON.stringify(await res.json()); } catch { /* ignore */ }
+    if (res.status === 401) throw new Error(`TOKEN_INVALID: ${detail}`);
+    if (res.status === 404) throw new Error(`STORE_INVALID: ${detail}`);
+    throw new Error(`API_ERROR_${res.status}: ${detail}`);
+  }
+  const orders: TNOrder[] = await res.json();
+  const hasMore = (res.headers.get('Link') ?? '').includes('rel="next"');
+  return { orders, hasMore };
+}
+
 async function fetchPage(
   storeId: string,
   token: string,
   page: number,
   createdAtMin: string,
 ): Promise<{ orders: TNOrder[]; hasMore: boolean }> {
-  const params = new URLSearchParams({
+  const qs = new URLSearchParams({
+    per_page: '200',
+    page: String(page),
+    created_at_min: createdAtMin,
+  }).toString();
+
+  // Intentar llamada directa primero (TiendaNube soporta CORS)
+  try {
+    const res = await fetch(`${TN_BASE}/${storeId}/orders?${qs}`, {
+      headers: TN_HEADERS(token),
+    });
+    return await handleTNResponse(res);
+  } catch (err: any) {
+    // Si fue un error de API (no CORS) lo relanzamos directo
+    if (err.message?.startsWith('TOKEN_INVALID') ||
+        err.message?.startsWith('STORE_INVALID') ||
+        err.message?.startsWith('API_ERROR')) {
+      throw err;
+    }
+    // Si fue CORS o network error, usar proxy Vercel
+  }
+
+  const proxyParams = new URLSearchParams({
     storeId,
     token,
     path: 'orders',
@@ -121,17 +163,8 @@ async function fetchPage(
     page: String(page),
     created_at_min: createdAtMin,
   });
-
-  const res = await fetch(`/api/tiendanube?${params}`);
-
-  if (res.status === 401) throw new Error('TOKEN_INVALID');
-  if (res.status === 422) throw new Error('STORE_INVALID');
-  if (!res.ok)            throw new Error(`API_ERROR_${res.status}`);
-
-  const orders: TNOrder[] = await res.json();
-  const hasMore = (res.headers.get('Link') ?? '').includes('rel="next"');
-
-  return { orders, hasMore };
+  const proxyRes = await fetch(`/api/tiendanube?${proxyParams}`);
+  return await handleTNResponse(proxyRes);
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
