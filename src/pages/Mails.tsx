@@ -456,7 +456,7 @@ export default function Mails() {
       </div>
 
       {/* ══ PANEL DERECHO ═══════════════════════════════════════════════════ */}
-      <div className="mails-right">
+      <div className={`mails-right ${!selected ? 'mails-right-empty' : ''}`}>
         {!selected ? (
           <div className="mails-empty-state">
             <Inbox size={40} className="mails-empty-icon" />

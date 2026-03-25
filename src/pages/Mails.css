@@ -699,6 +699,18 @@
   }
 }
 
+@media (max-width: 900px) {
+  .mails-right.mails-right-empty {
+    display: none;
+  }
+
+  .mails-left {
+    height: auto;
+    flex: 1;
+  }
+}
+
 @media (max-width: 768px) {
   .mails-page { margin: -0.5rem -0.5rem; border-radius: 0; }
+  .mail-toast { bottom: 5.5rem; right: 1rem; }
 }
