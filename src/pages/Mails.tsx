@@ -297,17 +297,29 @@ export default function Mails() {
         setDebugRaw(text.slice(0, 800));
       }
 
-      // 2. Merge: nuevos + cache, sin duplicados por id
+      // 2. Merge: nuevos + cache, sin duplicados por id (máx 50)
       const freshIds = new Set(freshMails.map((m: MailItem) => m.id));
       const oldOnly  = cachedMails.filter(m => !freshIds.has(m.id));
-      const merged   = [...freshMails, ...oldOnly];
+      const merged   = [...freshMails, ...oldOnly].slice(0, 50);
 
       setMails(merged);
       setFromCache(false);
       setLastRefreshed(new Date());
 
-      // 3. Guardar todo en Supabase
-      if (merged.length > 0) saveMailsCache(merged);
+      // 3. Guardar en Supabase solo los campos necesarios (sin cuerpo completo)
+      if (merged.length > 0) saveMailsCache(merged.map(m => ({
+        id: m.id,
+        threadId: m.threadId,
+        de: m.de,
+        nombre: m.nombre,
+        asunto: m.asunto,
+        fecha: m.fecha,
+        leido: m.leido,
+        categoria: m.categoria,
+        resumen: m.resumen,
+        cuerpo: m.cuerpo?.slice(0, 300) ?? '',
+        respuestaSugerida: m.respuestaSugerida,
+      })));
     } catch (err) {
       console.error('[Mails] error:', err);
       setDebugRaw(String(err));

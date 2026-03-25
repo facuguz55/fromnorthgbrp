@@ -4,6 +4,8 @@ const SUPABASE_URL = 'https://tnmmbfcbviowhunnrzix.supabase.co';
 
 export async function fetchMailsCache(): Promise<unknown[]> {
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/mails_cache?id=eq.1&select=mails`,
       {
@@ -11,8 +13,10 @@ export async function fetchMailsCache(): Promise<unknown[]> {
           apikey: SUPABASE_ANON_KEY,
           Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
         },
+        signal: controller.signal,
       }
     );
+    clearTimeout(timeout);
     if (!res.ok) return [];
     const data = await res.json();
     return data?.[0]?.mails ?? [];
