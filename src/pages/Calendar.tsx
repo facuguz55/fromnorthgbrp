@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { getSettings, fetchGoogleSheetsMetrics } from '../services/dataService';
+import { getSettings } from '../services/dataService';
+import { fetchTNMetrics } from '../services/tiendanubeService';
 import SalesCalendarDetail from '../components/SalesCalendarDetail';
 
 export default function Calendar() {
@@ -12,9 +13,11 @@ export default function Calendar() {
     setLoading(true);
     try {
       const settings = getSettings();
-      if (settings?.googleSheetsUrl) {
-        const fetched = await fetchGoogleSheetsMetrics(settings.googleSheetsUrl);
-        if (fetched) setVentasPorDia(fetched.ventasPorDia);
+      const storeId  = settings?.tiendanubeStoreId?.trim() ?? '';
+      const token    = settings?.tiendanubeToken?.trim()    ?? '';
+      if (storeId && token) {
+        const fetched = await fetchTNMetrics(storeId, token);
+        setVentasPorDia(fetched.ventasPorDia);
       }
     } catch (err) {
       console.error('Error fetching calendar data:', err);

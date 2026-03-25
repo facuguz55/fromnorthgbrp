@@ -1,385 +1,422 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, Search, SlidersHorizontal, X, ChevronDown } from 'lucide-react';
-import { getSettings, fetchSheetByGid } from '../services/dataService';
-import './SheetViewer.css';
-import './Ventas.css';
+import { useState, useEffect } from 'react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend,
+} from 'recharts';
+import {
+  Store, RefreshCw, DollarSign, TrendingUp, CalendarDays,
+  ShoppingCart, Package, AlertCircle, Settings2, Trophy,
+} from 'lucide-react';
+import MetricCard from '../components/MetricCard';
+import { getSettings } from '../services/dataService';
+import {
+  fetchTNMetrics,
+  paymentStatusLabel,
+  paymentStatusClass,
+} from '../services/tiendanubeService';
+import type { TNMetrics, TNOrder } from '../services/tiendanubeService';
+import '../components/Chart.css';
+import './TiendanubeVentas.css';
 
-type SortOption = 'recientes' | 'antiguas' | 'mayor-total' | 'menor-total' | 'mayor-precio' | 'mayor-cantidad';
+// ── Formatters ─────────────────────────────────────────────────────────────────
 
-const SORT_OPTIONS: { id: SortOption; label: string }[] = [
-  { id: 'recientes',      label: 'Más recientes'  },
-  { id: 'antiguas',       label: 'Más antiguas'   },
-  { id: 'mayor-total',    label: 'Mayor total'    },
-  { id: 'menor-total',    label: 'Menor total'    },
-  { id: 'mayor-precio',   label: 'Mayor precio'   },
-  { id: 'mayor-cantidad', label: 'Mayor cantidad' },
+const fmtARS = (n: number) =>
+  n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
+
+const fmtNum = (n: number) =>
+  n.toLocaleString('es-AR', { maximumFractionDigits: 0 });
+
+// ── Tooltip custom ─────────────────────────────────────────────────────────────
+
+const DiaTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="chart-tooltip">
+      <p className="chart-tooltip-label">{label}</p>
+      <p className="chart-tooltip-value" style={{ color: '#06b6d4' }}>{fmtARS(payload[0].value)}</p>
+    </div>
+  );
+};
+
+const MetodoTooltip = ({ active, payload }: any) => {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  return (
+    <div className="chart-tooltip">
+      <p className="chart-tooltip-label">{d.name}</p>
+      <p className="chart-tooltip-value" style={{ color: d.color }}>{d.value} órdenes</p>
+      <p className="chart-tooltip-sub">{d.porcentaje}% del total</p>
+    </div>
+  );
+};
+
+// ── Palette para métodos de pago ───────────────────────────────────────────────
+
+const PALETTE = [
+  '#06b6d4', '#6366f1', '#10b981', '#f59e0b',
+  '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6',
 ];
 
-function parseDateMs(raw: string): number {
-  if (!raw) return 0;
-  const datePart = raw.replace(/,?\s+\d{1,2}:\d{2}(:\d{2})?(\s*(AM|PM))?$/i, '').trim();
-  const timeMatch = raw.match(/(\d{1,2}):(\d{2})/);
-  const h = timeMatch ? parseInt(timeMatch[1], 10) : 0;
-  const m = timeMatch ? parseInt(timeMatch[2], 10) : 0;
+// ── Orden row ──────────────────────────────────────────────────────────────────
 
-  const iso = datePart.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
-  if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3], h, m).getTime();
+function OrdenRow({ o, i }: { o: TNOrder; i: number }) {
+  const fecha = new Date(o.created_at).toLocaleDateString('es-AR', {
+    day: '2-digit', month: '2-digit', year: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+    timeZone: 'America/Argentina/Buenos_Aires',
+  });
 
-  const slash = datePart.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (slash) {
-    const a = +slash[1], b = +slash[2], y = +slash[3];
-    let d: number, mo: number;
-    if (a > 12)      { d = a; mo = b; }
-    else if (b > 12) { d = b; mo = a; }
-    else             { d = a; mo = b; }
-    return new Date(y, mo - 1, d, h, m).getTime();
-  }
-  return 0;
+  return (
+    <tr>
+      <td className="tn-td-num">{i + 1}</td>
+      <td className="tn-td-orden">#{o.number}</td>
+      <td className="tn-td-cliente">
+        <span className="tn-client-name">{o.customer?.name ?? '—'}</span>
+        {o.customer?.email && (
+          <span className="tn-client-email">{o.customer.email}</span>
+        )}
+      </td>
+      <td className="tn-td-productos">
+        {o.products.map(p => p.name).join(', ') || '—'}
+      </td>
+      <td className="tn-td-total">{fmtARS(parseFloat(o.total))}</td>
+      <td>
+        <span className={`tn-badge ${paymentStatusClass(o.payment_status)}`}>
+          {paymentStatusLabel(o.payment_status)}
+        </span>
+      </td>
+      <td className="tn-td-fecha">{fecha}</td>
+    </tr>
+  );
 }
 
-function cleanCell(val: string): string {
-  return val.replace(/\bPAID\b/gi, '').trim();
-}
-
-const GID = '1317535551';
+// ── Component ──────────────────────────────────────────────────────────────────
 
 export default function Ventas() {
-  const navigate = useNavigate();
+  const [metrics, setMetrics]           = useState<TNMetrics | null>(null);
+  const [loading, setLoading]           = useState(false);
+  const [loadedCount, setLoadedCount]   = useState(0);
+  const [error, setError]               = useState<string | null>(null);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
-  const [loading, setLoading]             = useState(true);
-  const [error, setError]                 = useState(false);
-  const [headers, setHeaders]             = useState<string[]>([]);
-  const [rows, setRows]                   = useState<Record<string, string>[]>([]);
-  const [search, setSearch]               = useState('');
-  const [sort, setSort]                   = useState<SortOption>('recientes');
-  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
-
-  // Panel de filtros abierto/cerrado
-  const [filtersOpen, setFiltersOpen] = useState(false);
-
-  // Filtros de resaltado
-  const [filterMultiPrenda, setFilterMultiPrenda] = useState(false);
-  const [filterProducto, setFilterProducto]       = useState('');
-  const [filterMetodoPago, setFilterMetodoPago]   = useState('');
+  const settings = getSettings();
+  const storeId  = settings?.tiendanubeStoreId?.trim() ?? '';
+  const token    = settings?.tiendanubeToken?.trim()    ?? '';
+  const isConfigured = storeId && token;
 
   const fetchData = async () => {
+    if (!isConfigured) return;
     setLoading(true);
-    setError(false);
+    setError(null);
+    setLoadedCount(0);
+
     try {
-      const settings = getSettings();
-      if (!settings?.googleSheetsUrl) { setError(true); return; }
-      const data = await fetchSheetByGid(settings.googleSheetsUrl, GID);
-      if (data.headers.length === 0) { setError(true); return; }
-      setHeaders(data.headers);
-      setRows(data.rows);
-    } catch {
-      setError(true);
+      const data = await fetchTNMetrics(storeId, token, (n) => setLoadedCount(n));
+      setMetrics(data);
+      setLastRefreshed(new Date());
+    } catch (err: any) {
+      const msg = String(err.message ?? err);
+      if (msg.includes('TOKEN_INVALID'))  setError(`Token inválido. Verificá el Access Token en Configuración. (${msg})`);
+      else if (msg.includes('STORE_INVALID')) setError(`Store ID inválido. Verificá el número en Configuración. (${msg})`);
+      else setError(`Error conectando con TiendaNube: ${msg}`);
     } finally {
       setLoading(false);
-      setLastRefreshed(new Date());
     }
   };
 
   useEffect(() => { fetchData(); }, []);
 
-  const findCol = (kw: string) =>
-    headers.find(h =>
-      h.toLowerCase().replace(/[\s_-]/g, '').includes(kw.toLowerCase().replace(/[\s_-]/g, ''))
-    ) ?? '';
+  // ── Sin configurar ────────────────────────────────────────────────────────
 
-  const fechaCol      = findCol('fecha');
-  const totalCol      = findCol('total');
-  const precioCol     = findCol('precio');
-  const cantidadCol   = findCol('cantidad');
-  const productoCol   = findCol('producto');
-  const metodoPagoCol = useMemo(() =>
-    findCol('medio') || findCol('metodo') || findCol('payment'),
-  [headers]);
+  if (!isConfigured) {
+    return (
+      <div className="tn-page fade-in">
+        <header className="tn-header">
+          <h1><Store size={22} className="tn-title-icon" /> TiendaNube — Ventas</h1>
+        </header>
+        <div className="tn-setup-banner glass-panel">
+          <Settings2 size={32} className="tn-setup-icon" />
+          <h2>Configuración requerida</h2>
+          <p>
+            Ingresá tu <strong>Store ID</strong> y <strong>Access Token</strong> de TiendaNube
+            en <a href="/settings" className="tn-link">Configuración → TiendaNube API</a> para
+            ver las métricas oficiales de tu tienda.
+          </p>
+          <div className="tn-setup-steps">
+            <div className="tn-step">
+              <span className="tn-step-n">1</span>
+              <span>Andá a tu panel de TiendaNube → <strong>Mis aplicaciones</strong></span>
+            </div>
+            <div className="tn-step">
+              <span className="tn-step-n">2</span>
+              <span>Creá o usá una app existente y copiá el <strong>Access Token</strong></span>
+            </div>
+            <div className="tn-step">
+              <span className="tn-step-n">3</span>
+              <span>El <strong>Store ID</strong> está en la URL de tu panel: <code>/stores/XXXXXX/</code></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  // Columnas ocultas
-  const isHiddenCol = (h: string) => {
-    const n = h.toLowerCase().replace(/[\s_-]/g, '');
-    return n.includes('estadoenvio') || n.includes('estadopago') ||
-           n === 'estadodelenvio' || n === 'estadodelpago';
-  };
+  // ── Loading ───────────────────────────────────────────────────────────────
 
-  const visibleHeaders = headers.filter(h => !isHiddenCol(h));
+  if (loading && !metrics) {
+    return (
+      <div className="tn-page fade-in">
+        <header className="tn-header">
+          <h1><Store size={22} className="tn-title-icon" /> TiendaNube — Ventas</h1>
+        </header>
+        <div className="tn-loading glass-panel">
+          <RefreshCw size={28} className="spinning" />
+          <div>
+            <p className="tn-loading-title">Conectando con TiendaNube...</p>
+            {loadedCount > 0 && (
+              <p className="tn-loading-sub">{fmtNum(loadedCount)} órdenes cargadas</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const productosUnicos = useMemo(() =>
-    [...new Set(rows.map(r => cleanCell(r[productoCol] ?? '')).filter(Boolean))].sort(),
-  [rows, productoCol]);
+  const metodosConColor = metrics?.metodosPago.map((m, i) => ({
+    ...m,
+    color: PALETTE[i % PALETTE.length],
+  })) ?? [];
 
-  const metodosPagoUnicos = useMemo(() =>
-    [...new Set(rows.map(r => cleanCell(r[metodoPagoCol] ?? '')).filter(Boolean))].sort(),
-  [rows, metodoPagoCol]);
-
-  const hasActiveFilter = filterMultiPrenda || !!filterProducto || !!filterMetodoPago;
-
-  // Cuenta cuántos filtros están activos (para mostrar en el botón)
-  const activeFilterCount = [filterMultiPrenda, !!filterProducto, !!filterMetodoPago].filter(Boolean).length;
-
-  const rowHighlighted = (row: Record<string, string>): boolean => {
-    if (filterMultiPrenda && (parseFloat(row[cantidadCol] ?? '0') || 0) < 2) return false;
-    if (filterProducto && cleanCell(row[productoCol] ?? '') !== filterProducto) return false;
-    if (filterMetodoPago && cleanCell(row[metodoPagoCol] ?? '') !== filterMetodoPago) return false;
-    return true;
-  };
-
-  const clearFilters = () => {
-    setFilterMultiPrenda(false);
-    setFilterProducto('');
-    setFilterMetodoPago('');
-  };
-
-  // 1. Ordenar — por defecto más recientes primero
-  const sortedRows = useMemo(() => [...rows].sort((a, b) => {
-    switch (sort) {
-      case 'recientes':
-        return parseDateMs(b[fechaCol] ?? '') - parseDateMs(a[fechaCol] ?? '');
-      case 'antiguas':
-        return parseDateMs(a[fechaCol] ?? '') - parseDateMs(b[fechaCol] ?? '');
-      case 'mayor-total':
-        return (parseFloat(b[totalCol] ?? '0') || 0) - (parseFloat(a[totalCol] ?? '0') || 0);
-      case 'menor-total':
-        return (parseFloat(a[totalCol] ?? '0') || 0) - (parseFloat(b[totalCol] ?? '0') || 0);
-      case 'mayor-precio':
-        return (parseFloat(b[precioCol] ?? '0') || 0) - (parseFloat(a[precioCol] ?? '0') || 0);
-      case 'mayor-cantidad':
-        return (parseFloat(b[cantidadCol] ?? '0') || 0) - (parseFloat(a[cantidadCol] ?? '0') || 0);
-      default:
-        return 0;
-    }
-  }), [rows, sort, fechaCol, totalCol, precioCol, cantidadCol]);
-
-  // 2. Búsqueda
-  const searchFiltered = useMemo(() =>
-    sortedRows.filter(row =>
-      Object.values(row).some(v => cleanCell(v).toLowerCase().includes(search.toLowerCase()))
-    ),
-  [sortedRows, search]);
-
-  // 3. Filtros activos → resaltados arriba, resto abajo
-  const finalRows = useMemo(() =>
-    hasActiveFilter
-      ? [
-          ...searchFiltered.filter(r => rowHighlighted(r)),
-          ...searchFiltered.filter(r => !rowHighlighted(r)),
-        ]
-      : searchFiltered,
-  [searchFiltered, hasActiveFilter, filterMultiPrenda, filterProducto, filterMetodoPago]);
-
-  const highlightedCount = hasActiveFilter ? finalRows.filter(r => rowHighlighted(r)).length : 0;
+  const diasRecientes = metrics?.ventasPorDia.slice(-30) ?? [];
 
   return (
-    <div className="sv-page fade-in">
+    <div className="tn-page fade-in">
 
       {/* ── Header ── */}
-      <header className="sv-header">
-        <div className="sv-header-left">
-          <button className="sv-back-btn" onClick={() => navigate(-1)} title="Volver">
-            <ArrowLeft size={18} />
-          </button>
-          <div>
-            <h1>Ventas Todas</h1>
-            <span className="text-muted sv-meta">
-              Historial completo · Actualizado: {lastRefreshed.toLocaleTimeString('es-AR')}
-            </span>
-          </div>
+      <header className="tn-header">
+        <div>
+          <h1><Store size={22} className="tn-title-icon" /> TiendaNube — Ventas</h1>
+          <span className="text-muted tn-meta">
+            Últimos 90 días · Store {storeId}
+            {lastRefreshed && ` · Actualizado: ${lastRefreshed.toLocaleTimeString('es-AR')}`}
+          </span>
         </div>
         <button className="btn-secondary refresh-btn" onClick={fetchData} disabled={loading}>
           <RefreshCw size={15} className={loading ? 'spinning' : ''} />
-          {loading ? 'Cargando...' : 'Actualizar'}
+          {loading ? `Cargando ${fmtNum(loadedCount)}...` : 'Actualizar'}
         </button>
       </header>
 
+      {/* ── Error ── */}
       {error && (
-        <div className="sv-error glass-panel">
-          No se pudo cargar la hoja. Verificá la configuración de Google Sheets en Ajustes.
+        <div className="tn-error glass-panel">
+          <AlertCircle size={16} />
+          {error}
         </div>
       )}
 
-      {!loading && !error && rows.length > 0 && (
-        <>
-          {/* ── Toolbar: buscador + botón Filtros ── */}
-          <div className="sv-toolbar">
-            <span className="sv-count glass-panel">
-              {hasActiveFilter
-                ? <><span className="ventas-hl-count">{highlightedCount}</span>&nbsp;resaltados · {finalRows.length} de {rows.length}</>
-                : <>{search ? `${finalRows.length} de ${rows.length}` : rows.length}&nbsp;registros</>
-              }
-            </span>
+      {/* ── KPI Grid ── */}
+      {metrics && (
+        <div className="tn-kpi-grid">
+          <MetricCard
+            title="Total facturado (90d)"
+            value={fmtARS(metrics.totalFacturado)}
+            icon={<DollarSign size={20} />}
+            subtitle={`${fmtNum(metrics.ordenesPagadas)} órdenes pagadas`}
+          />
+          <MetricCard
+            title="Ventas hoy"
+            value={fmtARS(metrics.ventasHoy)}
+            icon={<TrendingUp size={20} />}
+            subtitle="desde medianoche (AR)"
+          />
+          <MetricCard
+            title="Ventas esta semana"
+            value={fmtARS(metrics.ventasSemana)}
+            icon={<CalendarDays size={20} />}
+            subtitle="lunes a hoy"
+          />
+          <MetricCard
+            title="Ventas este mes"
+            value={fmtARS(metrics.ventasMes)}
+            icon={<Store size={20} />}
+            subtitle="mes corriente"
+          />
+          <MetricCard
+            title="Ticket promedio"
+            value={fmtARS(metrics.ticketPromedio)}
+            icon={<ShoppingCart size={20} />}
+            subtitle="por orden pagada"
+          />
+          <MetricCard
+            title="Total órdenes"
+            value={fmtNum(metrics.totalOrdenes)}
+            icon={<Package size={20} />}
+            subtitle={`${fmtNum(metrics.ordenesPendientes)} pendientes · ${fmtNum(metrics.ordenesCanceladas)} canceladas`}
+          />
+        </div>
+      )}
 
-            <div className="sv-search-wrapper">
-              <Search size={14} className="sv-search-icon" />
-              <input
-                className="sv-search"
-                type="text"
-                placeholder="Buscar en todos los campos..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-              {search && (
-                <button className="sv-search-clear" onClick={() => setSearch('')}>×</button>
+      {/* ── Charts ── */}
+      {metrics && (
+        <div className="tn-charts-row">
+
+          {/* Ventas por día */}
+          <section className="analytics-section">
+            <div className="section-title-row">
+              <TrendingUp size={18} className="section-icon" />
+              <h2>Ventas por día</h2>
+            </div>
+            <p className="section-desc">Ingresos diarios de órdenes pagadas (últimos 30 días).</p>
+            <div className="chart-container glass-panel" style={{ height: 300 }}>
+              <div className="chart-header">
+                <div className="chart-header-row">
+                  <span className="chart-title">Facturación diaria</span>
+                  <span className="chart-badge">ARS</span>
+                </div>
+              </div>
+              {diasRecientes.length > 0 ? (
+                <div className="chart-wrapper">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={diasRecientes} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                      <XAxis
+                        dataKey="name"
+                        stroke="transparent"
+                        tick={{ fill: '#475569', fontSize: 10 }}
+                        tickLine={false}
+                        axisLine={false}
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis
+                        stroke="transparent"
+                        tick={{ fill: '#475569', fontSize: 10 }}
+                        tickLine={false}
+                        axisLine={false}
+                        width={60}
+                        tickFormatter={v => `$${(v / 1000).toFixed(0)}k`}
+                      />
+                      <Tooltip content={<DiaTooltip />} cursor={{ fill: 'rgba(6,182,212,0.06)' }} />
+                      <Bar dataKey="value" fill="#06b6d4" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="chart-empty">Sin datos en este período</div>
               )}
             </div>
+          </section>
 
-            {/* Botón Filtros */}
-            <button
-              className={`ventas-toggle-btn${filtersOpen ? ' open' : ''}${activeFilterCount > 0 ? ' has-active' : ''}`}
-              onClick={() => setFiltersOpen(v => !v)}
-            >
-              <SlidersHorizontal size={14} />
-              Filtros
-              {activeFilterCount > 0 && (
-                <span className="ventas-badge">{activeFilterCount}</span>
+          {/* Métodos de pago */}
+          <section className="analytics-section">
+            <div className="section-title-row">
+              <ShoppingCart size={18} className="section-icon" />
+              <h2>Métodos de pago</h2>
+            </div>
+            <p className="section-desc">Distribución de medios de pago en órdenes pagadas.</p>
+            <div className="chart-container glass-panel" style={{ height: 300 }}>
+              <div className="chart-header">
+                <div className="chart-header-row">
+                  <span className="chart-title">Medios de pago</span>
+                  <span className="chart-badge">Órdenes</span>
+                </div>
+              </div>
+              {metodosConColor.length > 0 ? (
+                <div className="chart-wrapper">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={metodosConColor}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={85}
+                        dataKey="value"
+                        paddingAngle={3}
+                      >
+                        {metodosConColor.map((entry, i) => (
+                          <Cell key={i} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<MetodoTooltip />} />
+                      <Legend
+                        formatter={(v) => (
+                          <span style={{ color: '#94a3b8', fontSize: '0.72rem' }}>{v}</span>
+                        )}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="chart-empty">Sin datos disponibles</div>
               )}
-              <ChevronDown size={12} className={`ventas-chevron${filtersOpen ? ' up' : ''}`} />
-            </button>
+            </div>
+          </section>
+
+        </div>
+      )}
+
+      {/* ── Top productos ── */}
+      {metrics && metrics.topProductos.length > 0 && (
+        <section className="analytics-section">
+          <div className="section-title-row">
+            <Trophy size={18} className="section-icon" />
+            <h2>Top productos vendidos</h2>
           </div>
-
-          {/* ── Panel de filtros (colapsable) ── */}
-          {filtersOpen && (
-            <div className="ventas-panel glass-panel">
-
-              {/* Ordenar */}
-              <div className="ventas-panel-row">
-                <span className="ventas-panel-label">Ordenar por</span>
-                <div className="ventas-chip-group">
-                  {SORT_OPTIONS.map(opt => (
-                    <button
-                      key={opt.id}
-                      className={`ventas-chip${sort === opt.id ? ' active' : ''}`}
-                      onClick={() => setSort(opt.id)}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
+          <p className="section-desc">Por cantidad de unidades en órdenes pagadas (últimos 90 días).</p>
+          <div className="tn-productos-grid glass-panel">
+            {metrics.topProductos.map((p, i) => (
+              <div key={p.nombre} className="tn-producto-row">
+                <span className="tn-producto-rank">#{i + 1}</span>
+                <span className="tn-producto-nombre">{p.nombre}</span>
+                <span className="tn-producto-cant">{fmtNum(p.cantidad)} u.</span>
+                <span className="tn-producto-total">{fmtARS(p.total)}</span>
               </div>
+            ))}
+          </div>
+        </section>
+      )}
 
-              {/* Separador */}
-              <div className="ventas-panel-sep" />
-
-              {/* Resaltar */}
-              <div className="ventas-panel-row">
-                <span className="ventas-panel-label">Resaltar y subir</span>
-                <div className="ventas-chip-group">
-
-                  {/* 2+ prendas */}
-                  <button
-                    className={`ventas-chip ventas-chip-hl${filterMultiPrenda ? ' active' : ''}`}
-                    onClick={() => setFilterMultiPrenda(v => !v)}
-                  >
-                    2+ prendas
-                  </button>
-
-                  {/* Por producto */}
-                  {productosUnicos.length > 0 && (
-                    <div className="ventas-select-wrap">
-                      <select
-                        className={`ventas-chip ventas-chip-select${filterProducto ? ' active' : ''}`}
-                        value={filterProducto}
-                        onChange={e => setFilterProducto(e.target.value)}
-                      >
-                        <option value="">Producto…</option>
-                        {productosUnicos.map(p => (
-                          <option key={p} value={p}>{p}</option>
-                        ))}
-                      </select>
-                      {filterProducto && (
-                        <button className="ventas-chip-x" onClick={() => setFilterProducto('')}>
-                          <X size={11} />
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Por método de pago */}
-                  {metodosPagoUnicos.length > 0 && (
-                    <div className="ventas-select-wrap">
-                      <select
-                        className={`ventas-chip ventas-chip-select${filterMetodoPago ? ' active' : ''}`}
-                        value={filterMetodoPago}
-                        onChange={e => setFilterMetodoPago(e.target.value)}
-                      >
-                        <option value="">Medio de pago…</option>
-                        {metodosPagoUnicos.map(mp => (
-                          <option key={mp} value={mp}>{mp}</option>
-                        ))}
-                      </select>
-                      {filterMetodoPago && (
-                        <button className="ventas-chip-x" onClick={() => setFilterMetodoPago('')}>
-                          <X size={11} />
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {hasActiveFilter && (
-                    <button className="ventas-chip ventas-chip-clear" onClick={clearFilters}>
-                      <X size={11} /> Limpiar
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── Tabla ── */}
-          <div className="sv-table-wrapper glass-panel">
-            <table className="sv-table">
+      {/* ── Últimas órdenes ── */}
+      {metrics && metrics.orders.length > 0 && (
+        <section className="analytics-section">
+          <div className="section-title-row">
+            <Package size={18} className="section-icon" />
+            <h2>Últimas órdenes</h2>
+          </div>
+          <p className="section-desc">
+            Órdenes más recientes · {fmtNum(metrics.orders.length)} registros cargados.
+          </p>
+          <div className="tn-table-wrapper glass-panel">
+            <table className="tn-table">
               <thead>
                 <tr>
                   <th>#</th>
-                  {visibleHeaders.map(h => <th key={h}>{h}</th>)}
+                  <th>Orden</th>
+                  <th>Cliente</th>
+                  <th>Productos</th>
+                  <th>Total</th>
+                  <th>Pago</th>
+                  <th>Fecha</th>
                 </tr>
               </thead>
               <tbody>
-                {finalRows.map((row, i) => {
-                  const hl = hasActiveFilter && rowHighlighted(row);
-                  return (
-                    <tr key={i} className={hl ? 'ventas-row-hl' : ''}>
-                      <td className="sv-td-num">{i + 1}</td>
-                      {visibleHeaders.map(h => {
-                        const val = cleanCell(row[h] ?? '');
-                        return (
-                          <td
-                            key={h}
-                            className={h.toLowerCase().includes('email') ? 'sv-td-email' : 'sv-td-cell'}
-                          >
-                            {h.toLowerCase().includes('email') && val
-                              ? <a href={`mailto:${val}`} className="sv-email-link">{val}</a>
-                              : val || <span className="sv-empty">—</span>}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
+                {metrics.orders.map((o, i) => (
+                  <OrdenRow key={o.id} o={o} i={i} />
+                ))}
               </tbody>
             </table>
-            {finalRows.length === 0 && (
-              <div className="sv-empty-msg">
-                {search ? `No hay resultados para "${search}"` : 'Sin resultados para los filtros aplicados'}
-              </div>
-            )}
           </div>
-        </>
+        </section>
       )}
 
-      {loading && (
-        <div className="sv-loading">
-          <RefreshCw size={22} className="spinning" />
-          <span>Cargando ventas...</span>
+      {/* ── Empty ── */}
+      {metrics && metrics.totalOrdenes === 0 && !error && (
+        <div className="tn-empty glass-panel">
+          No se encontraron órdenes en los últimos 90 días.
         </div>
       )}
 
-      {!loading && !error && rows.length === 0 && (
-        <div className="sv-empty-page glass-panel">
-          La hoja no contiene registros todavía.
-        </div>
-      )}
     </div>
   );
 }

@@ -1,9 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, RefreshCw, Mail, Search, Users } from 'lucide-react';
-import { getSettings, fetchSeguimientosEnviados } from '../services/dataService';
-import type { SeguimientoCliente } from '../services/dataService';
+import { getSettings } from '../services/dataService';
 import './SeguimientosEnviados.css';
+
+interface SeguimientoCliente {
+  nombre: string;
+  email: string;
+  fecha: string;
+  extra: Record<string, string>;
+}
+
+async function fetchSeguimientosEnviados(_url: string): Promise<SeguimientoCliente[]> {
+  return [];
+}
 
 export default function SeguimientosEnviados() {
   const navigate = useNavigate();
@@ -18,8 +28,8 @@ export default function SeguimientosEnviados() {
     setError(false);
     try {
       const settings = getSettings();
-      if (!settings?.googleSheetsUrl) { setError(true); return; }
-      const data = await fetchSeguimientosEnviados(settings.googleSheetsUrl);
+      if (!settings) { setError(true); return; }
+      const data = await fetchSeguimientosEnviados('');
       setClientes(data);
     } catch {
       setError(true);

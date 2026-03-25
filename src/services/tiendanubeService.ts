@@ -17,45 +17,79 @@ export interface TNOrder {
   subtotal: string;
   total_shipping: string;
   discount: string;
-  created_at: string; // ISO 8601
+  created_at: string;
   customer: { id: number; name: string; email: string } | null;
   products: TNProduct[];
   payment_details: { method: string; credit_card_company?: string } | null;
 }
 
+export interface TopProducto {
+  nombre: string;
+  cantidad: number;
+  total: number;
+}
+
+export interface MejorComprador {
+  nombre: string;
+  email: string;
+  total: number;
+  pedidos: number;
+}
+
+export interface StockItem {
+  nombre: string;
+  sku: string;
+  stock: number;
+  precio: number;
+  fechaActualizacion: string;
+}
+
 export interface TNMetrics {
   orders: TNOrder[];
+  // Revenue
   totalFacturado: number;
+  gananciaTotal: number;    // alias de totalFacturado para compatibilidad
   ventasHoy: number;
   ventasSemana: number;
   ventasMes: number;
+  // Orders
   totalOrdenes: number;
   ordenesPagadas: number;
   ordenesPendientes: number;
   ordenesCanceladas: number;
   ticketPromedio: number;
-  topProductos: { nombre: string; cantidad: number; total: number }[];
-  metodosPago:  { name: string; value: number; porcentaje: number }[];
+  // Products
+  topProductos: TopProducto[];
+  todosProductos: TopProducto[];
+  metodosPago: { name: string; value: number; porcentaje: number }[];
   ventasPorDia: { name: string; value: number }[];
+  ventasPorHora: { name: string; value: number }[];
+  // Customers
+  topCompradores: MejorComprador[];
+  clientesNuevos: number;
+  clientesRecurrentes: number;
+  // Alerts
+  productosHoy: Record<string, number>;
+  ordenesHoy: number[];
+  diasConDatos: number;
+  // Latest
   ultimaOrden: TNOrder | null;
+  ultimaVenta: { monto: number; producto: string; hora: string; cliente: string; fecha: string } | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Buenos Aires = UTC-3, sin DST */
 function getARBoundaries() {
   const AR_OFFSET = -3 * 60 * 60 * 1000;
   const nowMS     = Date.now();
   const nowAR     = nowMS + AR_OFFSET;
   const msPerDay  = 86_400_000;
-
   const todayStartMS  = Math.floor(nowAR / msPerDay) * msPerDay - AR_OFFSET;
   const arDow         = new Date(nowAR).getUTCDay();
   const daysSinceMon  = arDow === 0 ? 6 : arDow - 1;
   const weekStartMS   = todayStartMS - daysSinceMon * msPerDay;
   const arDayOfMonth  = new Date(nowAR).getUTCDate();
   const monthStartMS  = todayStartMS - (arDayOfMonth - 1) * msPerDay;
-
   return { todayStartMS, weekStartMS, monthStartMS };
 }
 
@@ -72,28 +106,28 @@ function dayLabel(isoDate: string): string {
 
 export function humanizePaymentMethod(method: string, brand?: string): string {
   const map: Record<string, string> = {
-    credit_card:    brand ? `Crédito ${brand}` : 'Tarjeta crédito',
-    debit_card:     'Tarjeta débito',
-    mercado_pago:   'Mercado Pago',
-    paypal:         'PayPal',
-    bank_transfer:  'Transferencia',
-    cash:           'Efectivo',
-    boleto:         'Boleto',
-    account_money:  'Dinero en cuenta',
-    pix:            'PIX',
+    credit_card:   brand ? `Crédito ${brand}` : 'Tarjeta crédito',
+    debit_card:    'Tarjeta débito',
+    mercado_pago:  'Mercado Pago',
+    paypal:        'PayPal',
+    bank_transfer: 'Transferencia',
+    cash:          'Efectivo',
+    boleto:        'Boleto',
+    account_money: 'Dinero en cuenta',
+    pix:           'PIX',
   };
   return map[method] ?? method;
 }
 
 export function paymentStatusLabel(s: TNOrder['payment_status']): string {
   const map: Record<string, string> = {
-    paid:            'Pagado',
-    authorized:      'Autorizado',
-    pending:         'Pendiente',
-    unpaid:          'Sin pagar',
-    partially_paid:  'Pago parcial',
-    refunded:        'Reembolsado',
-    voided:          'Anulado',
+    paid:           'Pagado',
+    authorized:     'Autorizado',
+    pending:        'Pendiente',
+    unpaid:         'Sin pagar',
+    partially_paid: 'Pago parcial',
+    refunded:       'Reembolsado',
+    voided:         'Anulado',
   };
   return map[s] ?? s;
 }
@@ -105,16 +139,27 @@ export function paymentStatusClass(s: TNOrder['payment_status']): string {
   return 'badge-muted';
 }
 
-// ── Fetch ─────────────────────────────────────────────────────────────────────
+// ── In-memory cache ───────────────────────────────────────────────────────────
+
+let metricsCache: { data: TNMetrics; ts: number } | null = null;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+
+export function clearTNCache() {
+  metricsCache = null;
+}
+
+// ── Fetch helpers ─────────────────────────────────────────────────────────────
 
 const TN_BASE = 'https://api.tiendanube.com/v1';
-const TN_HEADERS = (token: string) => ({
-  Authentication: `bearer ${token}`,
-  'User-Agent': 'NovaDashboard (contact@fromnorthgb.com)',
-  'Content-Type': 'application/json',
-});
 
-async function handleTNResponse(res: Response): Promise<{ orders: TNOrder[]; hasMore: boolean }> {
+function tnHeaders(token: string): HeadersInit {
+  return {
+    Authentication: `bearer ${token}`,
+    'User-Agent': 'NovaDashboard (contact@fromnorthgb.com)',
+  };
+}
+
+async function handleTNResponse(res: Response): Promise<{ data: any; hasMore: boolean }> {
   if (!res.ok) {
     let detail = '';
     try { detail = JSON.stringify(await res.json()); } catch { /* ignore */ }
@@ -122,160 +167,277 @@ async function handleTNResponse(res: Response): Promise<{ orders: TNOrder[]; has
     if (res.status === 404) throw new Error(`STORE_INVALID: ${detail}`);
     throw new Error(`API_ERROR_${res.status}: ${detail}`);
   }
-  const orders: TNOrder[] = await res.json();
+  const data = await res.json();
   const hasMore = (res.headers.get('Link') ?? '').includes('rel="next"');
-  return { orders, hasMore };
+  return { data, hasMore };
 }
 
-async function fetchPage(
+async function tnFetch(
   storeId: string,
   token: string,
-  page: number,
-  createdAtMin: string,
-): Promise<{ orders: TNOrder[]; hasMore: boolean }> {
-  const qs = new URLSearchParams({
-    per_page: '200',
-    page: String(page),
-    created_at_min: createdAtMin,
-  }).toString();
+  path: string,
+  params: Record<string, string>,
+): Promise<{ data: any; hasMore: boolean }> {
+  const qs = new URLSearchParams(params).toString();
 
-  // Intentar llamada directa primero (TiendaNube soporta CORS)
+  // Intentar directo primero (TiendaNube soporta CORS)
   try {
-    const res = await fetch(`${TN_BASE}/${storeId}/orders?${qs}`, {
-      headers: TN_HEADERS(token),
-    });
+    const res = await fetch(`${TN_BASE}/${storeId}/${path}?${qs}`, { headers: tnHeaders(token) });
     return await handleTNResponse(res);
   } catch (err: any) {
-    // Si fue un error de API (no CORS) lo relanzamos directo
     if (err.message?.startsWith('TOKEN_INVALID') ||
         err.message?.startsWith('STORE_INVALID') ||
-        err.message?.startsWith('API_ERROR')) {
-      throw err;
-    }
-    // Si fue CORS o network error, usar proxy Vercel
+        err.message?.startsWith('API_ERROR')) throw err;
+    // CORS o network error → usar proxy Vercel
   }
 
-  const proxyParams = new URLSearchParams({
-    storeId,
-    token,
-    path: 'orders',
-    per_page: '200',
-    page: String(page),
-    created_at_min: createdAtMin,
-  });
+  const proxyParams = new URLSearchParams({ storeId, token, path, ...params });
   const proxyRes = await fetch(`/api/tiendanube?${proxyParams}`);
   return await handleTNResponse(proxyRes);
 }
 
-// ── Main export ───────────────────────────────────────────────────────────────
+// ── Orders fetch ──────────────────────────────────────────────────────────────
 
-const MAX_PAGES = 5; // 1 000 órdenes máximo
+const MAX_PAGES = 5;
 const DAYS_BACK = 90;
+
+async function fetchOrdersAll(
+  storeId: string,
+  token: string,
+  onProgress?: (n: number) => void,
+): Promise<TNOrder[]> {
+  const since = new Date(Date.now() - DAYS_BACK * 86_400_000).toISOString();
+  const all: TNOrder[] = [];
+
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const { data, hasMore } = await tnFetch(storeId, token, 'orders', {
+      per_page: '200',
+      page: String(page),
+      created_at_min: since,
+    });
+    all.push(...(data as TNOrder[]));
+    onProgress?.(all.length);
+    if (!hasMore) break;
+  }
+  return all;
+}
+
+// ── Products fetch ────────────────────────────────────────────────────────────
+
+interface TNRawProduct {
+  id: number;
+  name: Record<string, string>;
+  variants: {
+    id: number;
+    sku: string | null;
+    price: string;
+    stock: number | null;
+    values: { es?: string; en?: string; pt?: string; [k: string]: string | undefined }[];
+    updated_at: string;
+  }[];
+  updated_at: string;
+}
+
+export async function fetchTNProducts(storeId: string, token: string): Promise<StockItem[]> {
+  const allProducts: TNRawProduct[] = [];
+
+  for (let page = 1; page <= 10; page++) {
+    const { data, hasMore } = await tnFetch(storeId, token, 'products', {
+      per_page: '200',
+      page: String(page),
+    });
+    allProducts.push(...(data as TNRawProduct[]));
+    if (!hasMore) break;
+  }
+
+  const items: StockItem[] = [];
+
+  for (const prod of allProducts) {
+    const baseName = prod.name.es ?? prod.name.en ?? Object.values(prod.name)[0] ?? String(prod.id);
+
+    for (const v of prod.variants) {
+      const variantLabel = v.values
+        .map(val => val.es ?? val.en ?? Object.values(val).find(x => x) ?? '')
+        .filter(Boolean)
+        .join(' / ');
+
+      const nombre = variantLabel ? `${baseName} — ${variantLabel}` : baseName;
+      const sku    = v.sku ?? `${prod.id}-${v.id}`;
+
+      items.push({
+        nombre,
+        sku,
+        stock:  v.stock ?? 0,
+        precio: parseAmount(v.price),
+        fechaActualizacion: v.updated_at
+          ? new Date(v.updated_at).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })
+          : '',
+      });
+    }
+  }
+
+  return items;
+}
+
+// ── Metrics computation ───────────────────────────────────────────────────────
 
 export async function fetchTNMetrics(
   storeId: string,
   token: string,
   onProgress?: (loaded: number) => void,
+  forceRefresh = false,
 ): Promise<TNMetrics> {
-  const since = new Date(Date.now() - DAYS_BACK * 86_400_000).toISOString();
-  const allOrders: TNOrder[] = [];
-
-  for (let page = 1; page <= MAX_PAGES; page++) {
-    const { orders, hasMore } = await fetchPage(storeId, token, page, since);
-    allOrders.push(...orders);
-    onProgress?.(allOrders.length);
-    if (!hasMore) break;
+  if (!forceRefresh && metricsCache && Date.now() - metricsCache.ts < CACHE_TTL) {
+    return metricsCache.data;
   }
 
-  // ── Compute ──────────────────────────────────────────────────────────────
+  const allOrders = await fetchOrdersAll(storeId, token, onProgress);
+
   const { todayStartMS, weekStartMS, monthStartMS } = getARBoundaries();
 
-  let totalFacturado   = 0;
-  let ventasHoy        = 0;
-  let ventasSemana     = 0;
-  let ventasMes        = 0;
-  let ordenesPagadas   = 0;
+  let totalFacturado    = 0;
+  let ventasHoy         = 0;
+  let ventasSemana      = 0;
+  let ventasMes         = 0;
+  let ordenesPagadas    = 0;
   let ordenesPendientes = 0;
   let ordenesCanceladas = 0;
 
-  const productoMap: Record<string, { nombre: string; cantidad: number; total: number }> = {};
-  const metodoMap:   Record<string, number> = {};
-  const diaMap:      Record<string, number> = {};
+  const productoMap:  Record<string, TopProducto>     = {};
+  const compradorMap: Record<string, MejorComprador>  = {};
+  const metodoMap:    Record<string, number>          = {};
+  const diaMap:       Record<string, number>          = {};
+  const horaMap:      Record<number, number>          = {};
+  const productosHoyMap: Record<string, number>       = {};
+  const ordenesHoyList:  number[]                     = [];
+
+  let ultimaVentaTs = -1;
+  let ultimaVenta: TNMetrics['ultimaVenta'] = null;
 
   for (const order of allOrders) {
     const ts    = new Date(order.created_at).getTime();
     const total = parseAmount(order.total);
 
-    // Status buckets
-    if (order.status === 'cancelled') {
-      ordenesCanceladas++;
-      continue; // no contar canceladas en facturación
-    }
+    if (order.status === 'cancelled') { ordenesCanceladas++; continue; }
+
     const isPaid = order.payment_status === 'paid' || order.payment_status === 'authorized';
     if (isPaid) ordenesPagadas++;
-    else        ordenesPendientes++;
-
-    if (!isPaid) continue; // solo pagadas cuentan en ingresos
+    else { ordenesPendientes++; continue; }
 
     totalFacturado += total;
-    if (ts >= todayStartMS) ventasHoy     += total;
-    if (ts >= weekStartMS)  ventasSemana  += total;
-    if (ts >= monthStartMS) ventasMes     += total;
+    if (ts >= todayStartMS) { ventasHoy += total; ordenesHoyList.push(total); }
+    if (ts >= weekStartMS)  ventasSemana += total;
+    if (ts >= monthStartMS) ventasMes    += total;
 
-    // Ventas por día
+    // Día
     const dl = dayLabel(order.created_at);
     diaMap[dl] = (diaMap[dl] ?? 0) + total;
 
-    // Método de pago
+    // Hora (AR timezone)
+    const horaAR = new Date(new Date(order.created_at).toLocaleString('en-US', { timeZone: 'America/Argentina/Buenos_Aires' })).getHours();
+    horaMap[horaAR] = (horaMap[horaAR] ?? 0) + 1;
+
+    // Método
     const method = humanizePaymentMethod(
       order.payment_details?.method ?? 'other',
       order.payment_details?.credit_card_company,
     );
     metodoMap[method] = (metodoMap[method] ?? 0) + 1;
 
-    // Top productos
+    // Productos
     for (const p of order.products) {
-      if (!productoMap[p.name])
-        productoMap[p.name] = { nombre: p.name, cantidad: 0, total: 0 };
+      if (!productoMap[p.name]) productoMap[p.name] = { nombre: p.name, cantidad: 0, total: 0 };
       productoMap[p.name].cantidad += p.quantity;
       productoMap[p.name].total   += parseAmount(p.price) * p.quantity;
+      if (ts >= todayStartMS) {
+        productosHoyMap[p.name] = (productosHoyMap[p.name] ?? 0) + parseAmount(p.price) * p.quantity;
+      }
+    }
+
+    // Compradores
+    const email   = order.customer?.email   ?? '';
+    const cliente = order.customer?.name    ?? '';
+    const key = email || cliente;
+    if (key) {
+      if (!compradorMap[key]) compradorMap[key] = { nombre: cliente, email, total: 0, pedidos: 0 };
+      compradorMap[key].total   += total;
+      compradorMap[key].pedidos += 1;
+    }
+
+    // Última venta
+    const timeStr = new Date(order.created_at)
+      .toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Argentina/Buenos_Aires' });
+    if (ts > ultimaVentaTs) {
+      ultimaVentaTs = ts;
+      ultimaVenta = {
+        monto:    total,
+        producto: order.products[0]?.name ?? '',
+        hora:     timeStr,
+        cliente,
+        fecha:    dayLabel(order.created_at),
+      };
     }
   }
 
-  const ticketPromedio = ordenesPagadas > 0 ? totalFacturado / ordenesPagadas : 0;
+  const todosProductosSorted = Object.values(productoMap).sort((a, b) => b.cantidad - a.cantidad);
+  const topProductos = todosProductosSorted.slice(0, 6);
 
-  const topProductos = Object.values(productoMap)
-    .sort((a, b) => b.cantidad - a.cantidad)
-    .slice(0, 10);
+  const topCompradores = Object.values(compradorMap)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 5);
+
+  let clientesNuevos = 0, clientesRecurrentes = 0;
+  for (const c of Object.values(compradorMap)) {
+    if (c.pedidos === 1) clientesNuevos++; else clientesRecurrentes++;
+  }
 
   const totalMetodos = Object.values(metodoMap).reduce((s, v) => s + v, 0);
   const metodosPago = Object.entries(metodoMap)
     .sort((a, b) => b[1] - a[1])
     .map(([name, value]) => ({
-      name,
-      value,
+      name, value,
       porcentaje: totalMetodos > 0 ? Math.round((value / totalMetodos) * 100) : 0,
     }));
 
-  // Días en orden cronológico (las órdenes vienen desc de la API, invertimos el mapa)
   const ventasPorDia = Object.entries(diaMap)
     .map(([name, value]) => ({ name, value }))
     .reverse();
 
-  return {
-    orders:           allOrders,
+  const ventasPorHora = Array.from({ length: 24 }, (_, h) => ({
+    name: `${String(h).padStart(2, '0')}:00`,
+    value: horaMap[h] ?? 0,
+  }));
+
+  const diasConDatos = Object.keys(diaMap).length;
+  const ticketPromedio = ordenesPagadas > 0 ? totalFacturado / ordenesPagadas : 0;
+
+  const metrics: TNMetrics = {
+    orders: allOrders,
     totalFacturado,
+    gananciaTotal: totalFacturado,
     ventasHoy,
     ventasSemana,
     ventasMes,
-    totalOrdenes:     allOrders.length,
+    totalOrdenes: allOrders.length,
     ordenesPagadas,
     ordenesPendientes,
     ordenesCanceladas,
     ticketPromedio,
     topProductos,
+    todosProductos: todosProductosSorted,
     metodosPago,
     ventasPorDia,
-    ultimaOrden:      allOrders[0] ?? null,
+    ventasPorHora,
+    topCompradores,
+    clientesNuevos,
+    clientesRecurrentes,
+    productosHoy: productosHoyMap,
+    ordenesHoy: ordenesHoyList,
+    diasConDatos,
+    ultimaOrden: allOrders[0] ?? null,
+    ultimaVenta,
   };
+
+  metricsCache = { data: metrics, ts: Date.now() };
+  return metrics;
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Bell, RefreshCw } from 'lucide-react';
-import { getSettings, fetchGoogleSheetsMetrics } from '../services/dataService';
+import { getSettings } from '../services/dataService';
+import { fetchTNMetrics } from '../services/tiendanubeService';
 import { generateAlerts } from '../services/alertsService';
 import type { AlertItem } from '../services/alertsService';
 import './Alerts.css';
@@ -16,14 +17,11 @@ export default function Alerts() {
     setNoConfig(false);
     try {
       const settings = getSettings();
-      if (!settings?.googleSheetsUrl) {
-        setNoConfig(true);
-        return;
-      }
-      const metrics = await fetchGoogleSheetsMetrics(settings.googleSheetsUrl);
-      if (metrics) {
-        setAlerts(generateAlerts(metrics));
-      }
+      const storeId  = settings?.tiendanubeStoreId?.trim() ?? '';
+      const token    = settings?.tiendanubeToken?.trim()    ?? '';
+      if (!storeId || !token) { setNoConfig(true); return; }
+      const metrics = await fetchTNMetrics(storeId, token);
+      setAlerts(generateAlerts(metrics));
     } catch (err) {
       console.error('Error fetching alerts:', err);
     } finally {
@@ -58,8 +56,8 @@ export default function Alerts() {
       ) : noConfig ? (
         <div className="alerts-empty glass-panel">
           <Bell size={40} className="alerts-empty-icon" />
-          <h3>Sin Google Sheets configurado</h3>
-          <p>Configurá la URL de tu hoja en <strong>Configuración → Sincronización</strong> para activar las alertas.</p>
+          <h3>Sin TiendaNube configurado</h3>
+          <p>Configurá tu <strong>Store ID</strong> y <strong>Access Token</strong> en <strong>Configuración → TiendaNube API</strong> para activar las alertas.</p>
         </div>
       ) : alerts.length === 0 ? (
         <div className="alerts-empty glass-panel">

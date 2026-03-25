@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Package, RefreshCw, Send, Search, AlertTriangle, Eye, EyeOff } from 'lucide-react';
-import { getSettings, fetchStockData } from '../services/dataService';
-import type { StockItem } from '../services/dataService';
+import { Package, RefreshCw, Search, AlertTriangle, Eye, EyeOff } from 'lucide-react';
+import { getSettings } from '../services/dataService';
+import { fetchTNProducts } from '../services/tiendanubeService';
+import type { StockItem } from '../services/tiendanubeService';
 import {
   fetchProductosOcultos,
   insertProductoOculto,
@@ -11,7 +12,6 @@ import {
 } from '../services/supabaseService';
 import './Stock.css';
 
-const WEBHOOK_WAIT_SECONDS = 18;
 const FILTER_KEY = 'stock-filter-tab';
 
 type SortKey = 'nombre' | 'sku' | 'stock' | 'precio';
@@ -29,8 +29,6 @@ export default function Stock() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [syncDone, setSyncDone] = useState(false);
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const [webhookStatus, setWebhookStatus] = useState<'idle' | 'ok' | 'err'>('idle');
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [search, setSearch] = useState('');
@@ -45,10 +43,7 @@ export default function Stock() {
   const [hidingAll, setHidingAll] = useState(false);
   const [showingAll, setShowingAll] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const toastIdRef = useRef(0);
-
-  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
   const addToast = (message: string, type: 'ok' | 'err' = 'ok') => {
     const id = ++toastIdRef.current;
@@ -69,18 +64,19 @@ export default function Stock() {
     setError(null);
     try {
       const settings = getSettings();
-      const url = settings?.stockSheetsUrl || '';
-      if (!url) {
+      const storeId  = settings?.tiendanubeStoreId?.trim() ?? '';
+      const token    = settings?.tiendanubeToken?.trim()    ?? '';
+      if (!storeId || !token) {
         setNoConfig(true);
         setLoading(false);
         return;
       }
       setNoConfig(false);
-      const data = await fetchStockData(url);
+      const data = await fetchTNProducts(storeId, token);
       setItems(data);
       setLastUpdated(new Date());
     } catch (err) {
-      setError('No se pudo cargar el stock. Verificá que el Google Sheet sea público.');
+      setError('No se pudo cargar el stock desde TiendaNube. Verificá el token en Configuración.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -161,39 +157,10 @@ export default function Stock() {
   const handleUpdate = async () => {
     setUpdating(true);
     setSyncDone(false);
-    setWebhookStatus('idle');
-
-    const settings = getSettings();
-    const webhookUrl = settings?.customApiUrl || '';
-
-    if (webhookUrl) {
-      try {
-        await fetch(webhookUrl, { method: 'GET', mode: 'no-cors' });
-        setWebhookStatus('ok');
-      } catch {
-        setWebhookStatus('err');
-      }
-
-      let remaining = WEBHOOK_WAIT_SECONDS;
-      setCountdown(remaining);
-      await new Promise<void>(resolve => {
-        timerRef.current = setInterval(() => {
-          remaining -= 1;
-          setCountdown(remaining);
-          if (remaining <= 0) {
-            clearInterval(timerRef.current!);
-            timerRef.current = null;
-            setCountdown(null);
-            resolve();
-          }
-        }, 1000);
-      });
-    }
-
     await loadData();
     setUpdating(false);
     setSyncDone(true);
-    setTimeout(() => { setSyncDone(false); setWebhookStatus('idle'); }, 4000);
+    setTimeout(() => setSyncDone(false), 3000);
   };
 
   const filtered = useMemo(() => {
@@ -258,34 +225,16 @@ export default function Stock() {
               : 'Sin datos cargados'}
           </span>
         </div>
-        <button
-          className="btn-primary update-btn"
-          onClick={handleUpdate}
-          disabled={updating || loading}
-        >
-          {updating && countdown !== null ? (
-            <><RefreshCw size={16} className="spinning" /> Actualizando... {countdown}s</>
-          ) : updating ? (
+        <button className="btn-primary update-btn" onClick={handleUpdate} disabled={updating || loading}>
+          {updating ? (
             <><RefreshCw size={16} className="spinning" /> Cargando...</>
           ) : syncDone ? (
             <>✓ Stock actualizado</>
           ) : (
-            <><Send size={16} /> Actualizar Stock</>
+            <><RefreshCw size={16} /> Actualizar Stock</>
           )}
         </button>
       </header>
-
-      {/* ── Banner de estado del webhook ─────────────────── */}
-      {webhookStatus === 'ok' && countdown !== null && (
-        <div className="telegram-status status-ok">
-          ✓ n8n procesando · el sheet se actualizará en <strong>{countdown}s</strong>...
-        </div>
-      )}
-      {webhookStatus === 'err' && (
-        <div className="telegram-status status-err">
-          ✗ No se pudo contactar el webhook. Verificá la URL en Configuración → API Personalizada.
-        </div>
-      )}
 
       {/* ── Cards de resumen ──────────────────────────── */}
       {items.length > 0 && (
@@ -385,8 +334,8 @@ export default function Stock() {
           <Package size={40} className="stock-state-icon" />
           <h3>Sin configuración</h3>
           <p>
-            Ingresá la URL del Google Sheet de stock en{' '}
-            <strong>Configuración → Sincronización</strong>.
+            Configurá tu <strong>Store ID</strong> y <strong>Access Token</strong> de TiendaNube en{' '}
+            <strong>Configuración → TiendaNube API</strong>.
           </p>
         </div>
       ) : error ? (

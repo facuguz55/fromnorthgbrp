@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, User, Palette, Database, Globe, Bell } from 'lucide-react';
+import { Save, User, Palette, Database, Globe } from 'lucide-react';
 import type { DashboardSettings } from '../services/dataService';
 import './Settings.css';
 
@@ -17,10 +17,6 @@ const ACCENT_COLORS = [
 const DEFAULT_SETTINGS: DashboardSettings = {
   tiendanubeToken: '',
   tiendanubeStoreId: '',
-  googleSheetsUrl: '',
-  stockSheetsUrl: 'https://docs.google.com/spreadsheets/d/1gsib01GwMqM217pXzbQ7rRWh9xGaMSC0fXL2MDifxJ0/edit?gid=0#gid=0',
-  customApiUrl: '',
-  autoSync: true,
   displayName: '',
   accentColor: '#06b6d4',
   compactMode: false,
@@ -195,53 +191,6 @@ export default function Settings() {
             </div>
           </section>
 
-          {/* ── Google Sheets ──────────────────── */}
-          <section className="settings-section glass-panel">
-            <h2 className="section-title"><Bell size={18} /> Sincronización</h2>
-            <div className="section-body">
-              <div className="toggle-group">
-                <div className="toggle-info">
-                  <span className="toggle-label">Auto-sync con Google Sheets</span>
-                  <span className="toggle-desc">Actualiza métricas automáticamente al cargar</span>
-                </div>
-                <label className="toggle-switch">
-                  <input
-                    type="checkbox"
-                    name="autoSync"
-                    checked={formData.autoSync}
-                    onChange={handleChange}
-                  />
-                  <span className="toggle-slider" />
-                </label>
-              </div>
-              <div className="form-group">
-                <label htmlFor="googleSheetsUrl">URL o ID de la hoja de cálculo (ventas)</label>
-                <input
-                  type="text"
-                  id="googleSheetsUrl"
-                  name="googleSheetsUrl"
-                  value={formData.googleSheetsUrl}
-                  onChange={handleChange}
-                  placeholder="https://docs.google.com/spreadsheets/d/..."
-                />
-                <span className="help-text">La hoja debe estar en modo "Cualquier persona con el enlace puede ver".</span>
-              </div>
-              <div className="form-group">
-                <label htmlFor="stockSheetsUrl">URL de la hoja de stock</label>
-                <input
-                  type="text"
-                  id="stockSheetsUrl"
-                  name="stockSheetsUrl"
-                  value={formData.stockSheetsUrl}
-                  onChange={handleChange}
-                  placeholder="https://docs.google.com/spreadsheets/d/..."
-                />
-                <span className="help-text">Sheet con columnas: Nombre, SKU, Stock, Precio, Fecha_Actualizacion.</span>
-              </div>
-            </div>
-          </section>
-
-
           {/* ── Tiendanube API ─────────────────── */}
           <section className="settings-section glass-panel">
             <h2 className="section-title"><Database size={18} /> Tiendanube API</h2>
@@ -269,24 +218,6 @@ export default function Settings() {
                     placeholder="Bearer token"
                   />
                 </div>
-              </div>
-            </div>
-          </section>
-
-          {/* ── Custom API ─────────────────────── */}
-          <section className="settings-section glass-panel">
-            <h2 className="section-title"><Database size={18} /> API Personalizada</h2>
-            <div className="section-body">
-              <div className="form-group">
-                <label htmlFor="customApiUrl">URL Base del endpoint</label>
-                <input
-                  type="url"
-                  id="customApiUrl"
-                  name="customApiUrl"
-                  value={formData.customApiUrl}
-                  onChange={handleChange}
-                  placeholder="https://api.ejemplo.com/v1"
-                />
               </div>
             </div>
           </section>

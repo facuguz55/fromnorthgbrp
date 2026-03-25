@@ -4,8 +4,10 @@ import {
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
 import { RefreshCw, Clock, CreditCard, Users, UserCheck, UserPlus } from 'lucide-react';
-import { getSettings, fetchGoogleSheetsMetrics } from '../services/dataService';
-import type { MetodoPago } from '../services/dataService';
+import { getSettings } from '../services/dataService';
+import { fetchTNMetrics } from '../services/tiendanubeService';
+
+interface MetodoPago { name: string; value: number; porcentaje: number; }
 import '../components/Chart.css';
 import './Analytics.css';
 
@@ -76,18 +78,17 @@ export default function Analytics() {
     setLoading(true);
     try {
       const settings = getSettings();
-      if (settings?.googleSheetsUrl && settings.autoSync !== false) {
-        const fetched = await fetchGoogleSheetsMetrics(settings.googleSheetsUrl);
-        if (fetched) {
-          setData({
-            ventasPorHora:       fetched.ventasPorHora,
-            ventasPorDia:        fetched.ventasPorDia,
-            metodosPago:         fetched.metodosPago,
-            clientesNuevos:      fetched.clientesNuevos,
-            clientesRecurrentes: fetched.clientesRecurrentes,
-          });
-        }
-      }
+      const storeId  = settings?.tiendanubeStoreId?.trim() ?? '';
+      const token    = settings?.tiendanubeToken?.trim()    ?? '';
+      if (!storeId || !token) return;
+      const fetched = await fetchTNMetrics(storeId, token);
+      setData({
+        ventasPorHora:       fetched.ventasPorHora,
+        ventasPorDia:        fetched.ventasPorDia,
+        metodosPago:         fetched.metodosPago,
+        clientesNuevos:      fetched.clientesNuevos,
+        clientesRecurrentes: fetched.clientesRecurrentes,
+      });
     } catch (err) {
       console.error('Error fetching analytics data:', err);
     } finally {

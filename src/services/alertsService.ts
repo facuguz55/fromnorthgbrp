@@ -1,4 +1,4 @@
-import type { SalesData, TopProducto } from './dataService';
+import type { TNMetrics, TopProducto } from './tiendanubeService';
 
 export type AlertSeverity = 'warning' | 'spike' | 'trending' | 'big_order' | 'zero';
 
@@ -92,10 +92,10 @@ function buildProductGroups(
 
 // ── Main alert generator ──────────────────────────────────────────────────────
 
-export function generateAlerts(data: SalesData): AlertItem[] {
+export function generateAlerts(data: TNMetrics): AlertItem[] {
   const alerts: AlertItem[] = [];
   const {
-    ventasHoy, gananciaTotal, diasConDatos,
+    ventasHoy, totalFacturado: gananciaTotal, diasConDatos,
     todosProductos, productosHoy, ordenesHoy, ticketPromedio,
   } = data;
 
