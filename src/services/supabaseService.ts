@@ -1,5 +1,21 @@
 const SUPABASE_URL = 'https://tnmmbfcbviowhunnrzix.supabase.co';
 
+// ── ventas (giro manual ruleta) ───────────────────────────────────────────────
+
+export async function insertEmailParaRuleta(email: string): Promise<void> {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/ventas`, {
+    method: 'POST',
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new Error(`Supabase error: ${res.status}`);
+}
+
 // ── mails ─────────────────────────────────────────────────────────────────────
 
 export interface MailRow {

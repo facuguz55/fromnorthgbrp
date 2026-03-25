@@ -4,11 +4,12 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
 import {
-  RefreshCw, Dices, Gift, Users, Percent, Trophy, Copy, Check,
+  RefreshCw, Dices, Gift, Users, Percent, Trophy, Copy, Check, Send,
 } from 'lucide-react';
 import MetricCard from '../components/MetricCard';
 import {
   fetchRuletaMetrics,
+  insertEmailParaRuleta,
   PREMIO_COLOR_MAP,
 } from '../services/supabaseService';
 import type { RuletaMetrics } from '../services/supabaseService';
@@ -72,6 +73,8 @@ export default function Ruleta() {
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
   const [metrics, setMetrics] = useState<RuletaMetrics | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [giroEmail, setGiroEmail]   = useState('');
+  const [giroStatus, setGiroStatus] = useState<'idle' | 'loading' | 'ok' | 'err'>('idle');
 
   const fetchData = async () => {
     setLoading(true);
@@ -87,6 +90,21 @@ export default function Ruleta() {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  const handleGiroManual = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!giroEmail.trim()) return;
+    setGiroStatus('loading');
+    try {
+      await insertEmailParaRuleta(giroEmail.trim().toLowerCase());
+      setGiroStatus('ok');
+      setGiroEmail('');
+      setTimeout(() => setGiroStatus('idle'), 3000);
+    } catch {
+      setGiroStatus('err');
+      setTimeout(() => setGiroStatus('idle'), 3000);
+    }
+  };
 
   const copyCode = (id: number, code: string) => {
     navigator.clipboard.writeText(code).then(() => {
@@ -129,6 +147,42 @@ export default function Ruleta() {
           No se pudo conectar con Supabase. Verificá la conexión e intentá de nuevo.
         </div>
       )}
+
+      {/* ── Giro manual ── */}
+      <section className="giro-manual-section glass-panel">
+        <div className="section-title-row" style={{ marginBottom: '0.75rem' }}>
+          <Dices size={18} className="section-icon" />
+          <h2 style={{ fontSize: '0.95rem', fontWeight: 700 }}>Generar giro manual</h2>
+        </div>
+        <p className="section-desc" style={{ marginBottom: '0.875rem' }}>
+          Ingresá el Gmail del cliente para habilitarle un giro de ruleta.
+        </p>
+        <form className="giro-manual-form" onSubmit={handleGiroManual}>
+          <input
+            type="email"
+            className="giro-email-input"
+            placeholder="cliente@gmail.com"
+            value={giroEmail}
+            onChange={e => { setGiroEmail(e.target.value); setGiroStatus('idle'); }}
+            disabled={giroStatus === 'loading'}
+            required
+          />
+          <button
+            type="submit"
+            className={`giro-submit-btn ${giroStatus === 'ok' ? 'giro-ok' : giroStatus === 'err' ? 'giro-err' : ''}`}
+            disabled={giroStatus === 'loading' || !giroEmail.trim()}
+          >
+            {giroStatus === 'loading' ? <RefreshCw size={15} className="spinning" /> :
+             giroStatus === 'ok'      ? <Check size={15} /> :
+             giroStatus === 'err'     ? '✕' :
+             <Send size={15} />}
+            {giroStatus === 'loading' ? 'Guardando...' :
+             giroStatus === 'ok'      ? '¡Giro generado!' :
+             giroStatus === 'err'     ? 'Error, reintentar' :
+             'Generar giro'}
+          </button>
+        </form>
+      </section>
 
       {/* ── KPI Cards ── */}
       {metrics && (

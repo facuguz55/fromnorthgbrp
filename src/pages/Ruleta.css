@@ -291,6 +291,75 @@
   font-size: 0.9rem;
 }
 
+/* ── Giro manual ─────────────────────────────────────────── */
+.giro-manual-section {
+  padding: 1.25rem 1.5rem;
+}
+
+.giro-manual-form {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.giro-email-input {
+  flex: 1;
+  min-width: 220px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.65rem 1rem;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.giro-email-input:focus {
+  border-color: var(--accent-primary);
+}
+
+.giro-email-input::placeholder {
+  color: var(--text-muted);
+}
+
+.giro-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--accent-primary);
+  color: #000;
+  font-weight: 700;
+  font-size: 0.875rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.giro-submit-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.giro-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.giro-submit-btn.giro-ok {
+  background: var(--accent-success);
+}
+
+.giro-submit-btn.giro-err {
+  background: var(--accent-danger);
+  color: #fff;
+}
+
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 768px) {
   .ruleta-page {
