@@ -1,0 +1,234 @@
+/* ── Botón "Filtros" en toolbar ─────────────────────────── */
+.ventas-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  border-radius: 10px;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast),
+              border-color var(--transition-fast);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ventas-toggle-btn:hover,
+.ventas-toggle-btn.open {
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.ventas-toggle-btn.has-active {
+  border-color: #f59e0b;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.ventas-toggle-btn.has-active:hover,
+.ventas-toggle-btn.has-active.open {
+  background: rgba(245, 158, 11, 0.15);
+}
+
+/* Badge con número de filtros activos */
+.ventas-badge {
+  background: #f59e0b;
+  color: #0b0f19;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  min-width: 17px;
+  height: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.25rem;
+  line-height: 1;
+}
+
+/* Chevron rotado cuando está abierto */
+.ventas-chevron {
+  transition: transform 0.2s ease;
+  opacity: 0.6;
+}
+.ventas-chevron.up { transform: rotate(180deg); }
+
+/* ── Panel de filtros ────────────────────────────────────── */
+.ventas-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-md);
+  border-color: rgba(255, 255, 255, 0.07);
+  animation: panel-in 0.15s ease;
+}
+
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ventas-panel-sep {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 0 -0.25rem;
+}
+
+.ventas-panel-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.ventas-panel-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+  min-width: 90px;
+}
+
+/* ── Chips (botones de filtro) ───────────────────────────── */
+.ventas-chip-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.ventas-chip {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 0.28rem 0.7rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast),
+              border-color var(--transition-fast), box-shadow var(--transition-fast);
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.ventas-chip:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+
+/* Chip de orden activo → cyan */
+.ventas-chip.active {
+  background: rgba(6, 182, 212, 0.14);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.18);
+}
+
+/* Chip de resaltar activo → naranja */
+.ventas-chip-hl.active {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: #f59e0b;
+  color: #fbbf24;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.18);
+}
+
+/* Chip select */
+.ventas-select-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ventas-chip-select {
+  appearance: none;
+  padding-right: 1.6rem;
+  min-width: 110px;
+  max-width: 190px;
+  cursor: pointer;
+}
+
+.ventas-chip-select:focus { outline: none; border-color: var(--accent-primary); }
+
+.ventas-chip-select option {
+  background: #1a1f2e;
+  color: var(--text-primary);
+}
+
+.ventas-chip-select.active {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: #f59e0b;
+  color: #fbbf24;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.18);
+}
+
+/* Botoncito × dentro del select */
+.ventas-chip-x {
+  position: absolute;
+  right: 0.4rem;
+  background: none;
+  border: none;
+  color: #f59e0b;
+  cursor: pointer;
+  padding: 0.1rem;
+  display: flex;
+  align-items: center;
+  opacity: 0.8;
+  transition: opacity var(--transition-fast);
+}
+.ventas-chip-x:hover { opacity: 1; }
+
+/* Chip limpiar → rojo suave */
+.ventas-chip-clear {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(239, 68, 68, 0.07);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+.ventas-chip-clear:hover {
+  background: rgba(239, 68, 68, 0.13);
+  color: #fca5a5;
+}
+
+/* ── Fila resaltada en la tabla ──────────────────────────── */
+.sv-table tbody tr.ventas-row-hl {
+  background: rgba(245, 158, 11, 0.055);
+  border-left: 3px solid rgba(245, 158, 11, 0.7);
+  border-bottom-color: rgba(245, 158, 11, 0.1);
+}
+
+.sv-table tbody tr.ventas-row-hl:hover {
+  background: rgba(245, 158, 11, 0.09);
+}
+
+.sv-table tbody tr.ventas-row-hl .sv-td-cell,
+.sv-table tbody tr.ventas-row-hl .sv-td-num {
+  color: var(--text-primary);
+}
+
+/* ── Contador resaltados ─────────────────────────────────── */
+.ventas-hl-count {
+  color: #fbbf24;
+  font-weight: 800;
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .ventas-panel { padding: 0.85rem 1rem; gap: 0.75rem; }
+  .ventas-panel-label { min-width: unset; width: 100%; }
+  .ventas-chip { font-size: 0.72rem; padding: 0.24rem 0.6rem; }
+  .ventas-chip-select { min-width: 90px; font-size: 0.72rem; }
+  .ventas-toggle-btn { padding: 0.45rem 0.75rem; font-size: 0.76rem; }
+}

@@ -1,0 +1,287 @@
+/* ── Shared utilities (also used in Dashboard) ───────────── */
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.spinning {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+/* ── Page Layout ────────────────────────────────────────── */
+.analytics-page {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 1.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.analytics-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.analytics-header h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  margin: 0 0 0.2rem;
+}
+
+.analytics-meta {
+  font-size: 0.78rem;
+}
+
+/* ── Two Column Layout ───────────────────────────────────── */
+.analytics-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .analytics-two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Section ─────────────────────────────────────────────── */
+.analytics-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.section-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.section-title-row h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.section-icon {
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.section-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Chart height overrides ─────────────────────────────── */
+.analytics-chart-tall {
+  height: 320px !important;
+}
+
+.analytics-chart-pie {
+  height: auto !important;
+  min-height: 340px;
+}
+
+/* ── Top 3 Horas Grid ───────────────────────────────────── */
+.top-horas-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.top-hora-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1rem 0.75rem;
+  border-radius: var(--radius-md);
+  text-align: center;
+  position: relative;
+  transition: transform var(--transition-fast);
+}
+
+.top-hora-card:hover {
+  transform: translateY(-2px);
+}
+
+.top-hora-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.6rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.top-hora-pos-1 { border-top: 2px solid #f59e0b; }
+.top-hora-pos-2 { border-top: 2px solid #94a3b8; }
+.top-hora-pos-3 { border-top: 2px solid #cd7c54; }
+
+.top-hora-time {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.top-hora-count {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--accent-primary);
+}
+
+.top-hora-label {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* ── Métodos de Pago List ────────────────────────────────── */
+.metodos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0 0.25rem 0.5rem;
+}
+
+.metodo-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.78rem;
+}
+
+.metodo-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.metodo-name {
+  flex: 1;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metodo-pct {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+  text-align: right;
+}
+
+.metodo-count {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  min-width: 60px;
+  text-align: right;
+}
+
+/* ── Clientes Stats ──────────────────────────────────────── */
+.clientes-stats-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  padding: 0 0.25rem;
+}
+
+.cliente-stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 1rem 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  text-align: center;
+}
+
+.cliente-stat-icon {
+  margin-bottom: 0.1rem;
+}
+
+.cliente-stat-icon.nuevos       { color: #10b981; }
+.cliente-stat-icon.recurrentes  { color: #06b6d4; }
+
+.cliente-stat-num {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.cliente-stat-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.cliente-stat-pct {
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-top: 0.1rem;
+}
+
+.nuevos-pct      { color: #10b981; }
+.recurrentes-pct { color: #06b6d4; }
+
+.clientes-pie-wrapper {
+  height: 160px !important;
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .analytics-page {
+    padding: 1rem;
+    gap: 1.5rem;
+  }
+
+  .analytics-header h1 {
+    font-size: 1.25rem;
+  }
+
+  .top-horas-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+
+  .top-hora-time {
+    font-size: 1.1rem;
+  }
+
+  .analytics-chart-tall {
+    height: 260px !important;
+  }
+}
