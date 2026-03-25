@@ -260,16 +260,18 @@ export default function Mails() {
     setError(false);
     setDebugRaw(null);
 
+    // 1. Cargar cache de Supabase primero (instantáneo)
+    let cachedMails: MailItem[] = [];
     if (withCache) {
       const cached = await fetchMailsCache();
       if (cached.length > 0) {
-        setMails(cached as MailItem[]);
+        cachedMails = cached as MailItem[];
+        setMails(cachedMails);
         setFromCache(true);
       }
     }
 
     try {
-      // Obtenemos texto crudo primero para poder debuggear sin importar el content-type
       const res = await fetch(WEBHOOK_GET, {
         method: 'POST',
         headers: { 'Accept': 'application/json' },
@@ -288,18 +290,24 @@ export default function Mails() {
         throw new Error(`No es JSON válido. Recibido: ${text.slice(0, 200)}`);
       }
 
-      const data = normalizeMails(raw);
-      console.log('[Mails] normalizados:', data.length, 'items');
+      const freshMails = normalizeMails(raw);
+      console.log('[Mails] normalizados:', freshMails.length, 'items');
 
-      if (data.length === 0) {
-        // Guardamos el raw para mostrarlo en la UI y ayudar a debuggear
+      if (freshMails.length === 0) {
         setDebugRaw(text.slice(0, 800));
       }
 
-      setMails(data);
+      // 2. Merge: nuevos + cache, sin duplicados por id
+      const freshIds = new Set(freshMails.map((m: MailItem) => m.id));
+      const oldOnly  = cachedMails.filter(m => !freshIds.has(m.id));
+      const merged   = [...freshMails, ...oldOnly];
+
+      setMails(merged);
       setFromCache(false);
       setLastRefreshed(new Date());
-      if (data.length > 0) saveMailsCache(data);
+
+      // 3. Guardar todo en Supabase
+      if (merged.length > 0) saveMailsCache(merged);
     } catch (err) {
       console.error('[Mails] error:', err);
       setDebugRaw(String(err));
