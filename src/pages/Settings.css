@@ -306,4 +306,17 @@
   .settings-section {
     padding: 1.25rem 1rem;
   }
+  .settings-page {
+    max-width: 100%;
+  }
+  .color-preview-row {
+    flex-wrap: wrap;
+  }
+  .form-actions {
+    justify-content: stretch;
+  }
+  .form-actions .btn-primary {
+    width: 100%;
+    justify-content: center;
+  }
 }

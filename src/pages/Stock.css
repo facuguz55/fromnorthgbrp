@@ -172,7 +172,8 @@
 /* ── Table ───────────────────────────────────────────── */
 .stock-table-wrapper {
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .stock-table {
@@ -469,8 +470,12 @@
   .stock-header     { flex-direction: column; align-items: flex-start; }
   .stock-filter-bar { flex-direction: column; align-items: flex-start; }
   .stock-tabs       { flex-wrap: wrap; }
+  .toast-container  { bottom: 5.5rem; right: 1rem; }
+  .stock-controls   { flex-wrap: wrap; }
+  .search-box       { max-width: 100%; width: 100%; }
 }
 
 @media (max-width: 480px) {
   .stock-summary { grid-template-columns: 1fr 1fr; }
+  .stat-value    { font-size: 1.4rem; }
 }
