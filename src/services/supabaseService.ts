@@ -16,6 +16,23 @@ export async function insertEmailParaRuleta(email: string): Promise<void> {
   if (!res.ok) throw new Error(`Supabase error: ${res.status}`);
 }
 
+export async function deleteEmailDeRuleta(email: string): Promise<number> {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/ventas?email=eq.${encodeURIComponent(email)}`,
+    {
+      method: 'DELETE',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        Prefer: 'return=representation',
+      },
+    }
+  );
+  if (!res.ok) throw new Error(`Supabase error: ${res.status}`);
+  const deleted = await res.json();
+  return Array.isArray(deleted) ? deleted.length : 0;
+}
+
 // ── mails ─────────────────────────────────────────────────────────────────────
 
 export interface MailRow {

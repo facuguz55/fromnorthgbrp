@@ -10,6 +10,7 @@ import MetricCard from '../components/MetricCard';
 import {
   fetchRuletaMetrics,
   insertEmailParaRuleta,
+  deleteEmailDeRuleta,
   PREMIO_COLOR_MAP,
 } from '../services/supabaseService';
 import type { RuletaMetrics } from '../services/supabaseService';
@@ -75,6 +76,9 @@ export default function Ruleta() {
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [giroEmail, setGiroEmail]   = useState('');
   const [giroStatus, setGiroStatus] = useState<'idle' | 'loading' | 'ok' | 'err'>('idle');
+  const [quitarEmail, setQuitarEmail]   = useState('');
+  const [quitarStatus, setQuitarStatus] = useState<'idle' | 'loading' | 'ok' | 'err' | 'none'>('idle');
+  const [quitarCount, setQuitarCount]   = useState(0);
 
   const fetchData = async () => {
     setLoading(true);
@@ -103,6 +107,22 @@ export default function Ruleta() {
     } catch {
       setGiroStatus('err');
       setTimeout(() => setGiroStatus('idle'), 3000);
+    }
+  };
+
+  const handleQuitarGiro = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quitarEmail.trim()) return;
+    setQuitarStatus('loading');
+    try {
+      const count = await deleteEmailDeRuleta(quitarEmail.trim().toLowerCase());
+      setQuitarCount(count);
+      setQuitarStatus(count === 0 ? 'none' : 'ok');
+      if (count > 0) setQuitarEmail('');
+      setTimeout(() => setQuitarStatus('idle'), 4000);
+    } catch {
+      setQuitarStatus('err');
+      setTimeout(() => setQuitarStatus('idle'), 3000);
     }
   };
 
@@ -180,6 +200,42 @@ export default function Ruleta() {
              giroStatus === 'ok'      ? '¡Giro generado!' :
              giroStatus === 'err'     ? 'Error, reintentar' :
              'Generar giro'}
+          </button>
+        </form>
+      </section>
+
+      {/* ── Quitar giro ── */}
+      <section className="giro-manual-section glass-panel">
+        <div className="section-title-row" style={{ marginBottom: '0.75rem' }}>
+          <Gift size={18} style={{ color: '#ef4444', flexShrink: 0 }} />
+          <h2 style={{ fontSize: '0.95rem', fontWeight: 700 }}>Quitar giro</h2>
+        </div>
+        <p className="section-desc" style={{ marginBottom: '0.875rem' }}>
+          Eliminá todas las entradas de un Gmail en la tabla de ventas.
+        </p>
+        <form className="giro-manual-form" onSubmit={handleQuitarGiro}>
+          <input
+            type="email"
+            className="giro-email-input"
+            placeholder="cliente@gmail.com"
+            value={quitarEmail}
+            onChange={e => { setQuitarEmail(e.target.value); setQuitarStatus('idle'); }}
+            disabled={quitarStatus === 'loading'}
+            required
+          />
+          <button
+            type="submit"
+            className={`giro-submit-btn ${quitarStatus === 'ok' ? 'giro-ok' : quitarStatus === 'err' || quitarStatus === 'none' ? 'giro-err' : ''}`}
+            style={quitarStatus === 'idle' ? { background: '#ef4444' } : undefined}
+            disabled={quitarStatus === 'loading' || !quitarEmail.trim()}
+          >
+            {quitarStatus === 'loading' ? <RefreshCw size={15} className="spinning" /> :
+             quitarStatus === 'ok'      ? <Check size={15} /> : null}
+            {quitarStatus === 'loading' ? 'Eliminando...' :
+             quitarStatus === 'ok'      ? `${quitarCount} giro${quitarCount !== 1 ? 's' : ''} eliminado${quitarCount !== 1 ? 's' : ''}` :
+             quitarStatus === 'none'    ? 'Sin giros para ese email' :
+             quitarStatus === 'err'     ? 'Error, reintentar' :
+             'Quitar giro'}
           </button>
         </form>
       </section>
