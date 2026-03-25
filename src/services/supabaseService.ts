@@ -1,4 +1,42 @@
 const SUPABASE_URL = 'https://tnmmbfcbviowhunnrzix.supabase.co';
+
+// ── mails_cache ───────────────────────────────────────────────────────────────
+
+export async function fetchMailsCache(): Promise<unknown[]> {
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/mails_cache?id=eq.1&select=mails`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+      }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data?.[0]?.mails ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveMailsCache(mails: unknown[]): Promise<void> {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/mails_cache?id=eq.1`, {
+      method: 'PATCH',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({ mails, updated_at: new Date().toISOString() }),
+    });
+  } catch {
+    // silencioso — el cache es opcional
+  }
+}
 const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRubW1iZmNidmlvd2h1bm5yeml4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyMTc4MzcsImV4cCI6MjA4OTc5MzgzN30.ZZD8evIrlfY_77-DEh47L-JJxFOxhH8L9xZ_NjHN6QU';
 

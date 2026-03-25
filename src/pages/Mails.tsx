@@ -3,6 +3,7 @@ import {
   RefreshCw, Mail, Send, Sparkles, AlertCircle,
   CheckCircle2, Inbox, Copy, EyeOff,
 } from 'lucide-react';
+import { fetchMailsCache, saveMailsCache } from '../services/supabaseService';
 import './Mails.css';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -238,6 +239,7 @@ function MailSkeleton() {
 export default function Mails() {
   const [mails,         setMails]         = useState<MailItem[]>([]);
   const [loading,       setLoading]       = useState(false);
+  const [fromCache,     setFromCache]     = useState(false);
   const [error,         setError]         = useState(false);
   const [filtro,        setFiltro]        = useState<Filtro>('todos');
   const [ocultarSpam,   setOcultarSpam]   = useState(true);
@@ -253,10 +255,19 @@ export default function Mails() {
     setTimeout(() => setToast(null), 4000);
   };
 
-  const fetchMails = useCallback(async () => {
+  const fetchMails = useCallback(async (withCache = false) => {
     setLoading(true);
     setError(false);
     setDebugRaw(null);
+
+    if (withCache) {
+      const cached = await fetchMailsCache();
+      if (cached.length > 0) {
+        setMails(cached as MailItem[]);
+        setFromCache(true);
+      }
+    }
+
     try {
       // Obtenemos texto crudo primero para poder debuggear sin importar el content-type
       const res = await fetch(WEBHOOK_GET, {
@@ -286,7 +297,9 @@ export default function Mails() {
       }
 
       setMails(data);
+      setFromCache(false);
       setLastRefreshed(new Date());
+      if (data.length > 0) saveMailsCache(data);
     } catch (err) {
       console.error('[Mails] error:', err);
       setDebugRaw(String(err));
@@ -296,7 +309,7 @@ export default function Mails() {
     }
   }, []);
 
-  useEffect(() => { /* carga manual — el usuario apreta Actualizar */ }, []);
+  useEffect(() => { fetchMails(true); }, []);
 
   const sendMail = async () => {
     if (!selected || !respuesta.trim()) return;
@@ -366,7 +379,12 @@ export default function Mails() {
               {loading ? 'Cargando...' : 'Actualizar'}
             </button>
           </div>
-          {lastRefreshed && (
+          {fromCache && loading && (
+            <p className="mails-last-update" style={{ color: '#f59e0b' }}>
+              Actualizando bandeja...
+            </p>
+          )}
+          {lastRefreshed && !fromCache && (
             <p className="mails-last-update">
               Actualizado: {lastRefreshed.toLocaleTimeString('es-AR')}
             </p>
