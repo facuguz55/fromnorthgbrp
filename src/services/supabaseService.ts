@@ -1,13 +1,27 @@
 const SUPABASE_URL = 'https://tnmmbfcbviowhunnrzix.supabase.co';
 
-// ── mails_cache ───────────────────────────────────────────────────────────────
+// ── mails ─────────────────────────────────────────────────────────────────────
 
-export async function fetchMailsCache(): Promise<unknown[]> {
+export interface MailRow {
+  id: string;
+  thread_id: string;
+  de: string;
+  nombre: string;
+  asunto: string;
+  cuerpo: string;
+  fecha: string;
+  leido: boolean;
+  categoria: string;
+  resumen: string;
+  respuesta_sugerida: string;
+}
+
+export async function fetchMailsFromDB(): Promise<MailRow[]> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3000);
+    const timeout = setTimeout(() => controller.abort(), 4000);
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/mails_cache?id=eq.1&select=mails`,
+      `${SUPABASE_URL}/rest/v1/mails?select=*&order=fecha.desc&limit=60`,
       {
         headers: {
           apikey: SUPABASE_ANON_KEY,
@@ -18,16 +32,16 @@ export async function fetchMailsCache(): Promise<unknown[]> {
     );
     clearTimeout(timeout);
     if (!res.ok) return [];
-    const data = await res.json();
-    return data?.[0]?.mails ?? [];
+    return await res.json();
   } catch {
     return [];
   }
 }
 
-export async function saveMailsCache(mails: unknown[]): Promise<void> {
+export async function upsertMails(mails: MailRow[]): Promise<void> {
+  if (mails.length === 0) return;
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/mails_cache`, {
+    await fetch(`${SUPABASE_URL}/rest/v1/mails`, {
       method: 'POST',
       headers: {
         apikey: SUPABASE_ANON_KEY,
@@ -35,10 +49,10 @@ export async function saveMailsCache(mails: unknown[]): Promise<void> {
         'Content-Type': 'application/json',
         Prefer: 'resolution=merge-duplicates,return=minimal',
       },
-      body: JSON.stringify({ id: 1, mails, updated_at: new Date().toISOString() }),
+      body: JSON.stringify(mails),
     });
   } catch {
-    // silencioso — el cache es opcional
+    // silencioso
   }
 }
 const SUPABASE_ANON_KEY =

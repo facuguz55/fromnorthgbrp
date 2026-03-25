@@ -3,7 +3,8 @@ import {
   RefreshCw, Mail, Send, Sparkles, AlertCircle,
   CheckCircle2, Inbox, Copy, EyeOff,
 } from 'lucide-react';
-import { fetchMailsCache, saveMailsCache } from '../services/supabaseService';
+import { fetchMailsFromDB, upsertMails } from '../services/supabaseService';
+import type { MailRow } from '../services/supabaseService';
 import './Mails.css';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -260,13 +261,16 @@ export default function Mails() {
     setError(false);
     setDebugRaw(null);
 
-    // 1. Cargar cache de Supabase primero (instantáneo)
-    let cachedMails: MailItem[] = [];
+    // 1. Mostrar Supabase al instante
     if (withCache) {
-      const cached = await fetchMailsCache();
-      if (cached.length > 0) {
-        cachedMails = cached as MailItem[];
-        setMails(cachedMails);
+      const rows = await fetchMailsFromDB();
+      if (rows.length > 0) {
+        setMails(rows.map(r => ({
+          id: r.id, threadId: r.thread_id, de: r.de, nombre: r.nombre,
+          asunto: r.asunto, cuerpo: r.cuerpo, fecha: r.fecha, leido: r.leido,
+          categoria: r.categoria as MailItem['categoria'],
+          resumen: r.resumen, respuestaSugerida: r.respuesta_sugerida,
+        })));
         setFromCache(true);
       }
     }
@@ -278,48 +282,37 @@ export default function Mails() {
       });
 
       const text = await res.text();
-      console.log('[Mails] status:', res.status, '| body:', text.slice(0, 400));
-
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
       if (!text.trim()) throw new Error('El webhook devolvió una respuesta vacía');
 
       let raw: unknown;
-      try {
-        raw = JSON.parse(text);
-      } catch {
-        throw new Error(`No es JSON válido. Recibido: ${text.slice(0, 200)}`);
-      }
+      try { raw = JSON.parse(text); }
+      catch { throw new Error(`No es JSON válido. Recibido: ${text.slice(0, 200)}`); }
 
       const freshMails = normalizeMails(raw);
-      console.log('[Mails] normalizados:', freshMails.length, 'items');
+      if (freshMails.length === 0) setDebugRaw(text.slice(0, 800));
 
-      if (freshMails.length === 0) {
-        setDebugRaw(text.slice(0, 800));
-      }
-
-      // 2. Merge: nuevos + cache, sin duplicados por id (máx 50)
-      const freshIds = new Set(freshMails.map((m: MailItem) => m.id));
-      const oldOnly  = cachedMails.filter(m => !freshIds.has(m.id));
-      const merged   = [...freshMails, ...oldOnly].slice(0, 50);
-
-      setMails(merged);
+      // 2. Mostrar frescos
+      setMails(freshMails);
       setFromCache(false);
       setLastRefreshed(new Date());
 
-      // 3. Guardar en Supabase solo los campos necesarios (sin cuerpo completo)
-      if (merged.length > 0) saveMailsCache(merged.map(m => ({
-        id: m.id,
-        threadId: m.threadId,
-        de: m.de,
-        nombre: m.nombre,
-        asunto: m.asunto,
-        fecha: m.fecha,
-        leido: m.leido,
-        categoria: m.categoria,
-        resumen: m.resumen,
-        cuerpo: m.cuerpo?.slice(0, 300) ?? '',
-        respuestaSugerida: m.respuestaSugerida,
-      })));
+      // 3. Guardar solo los NUEVOS en Supabase (upsert por id)
+      if (freshMails.length > 0) {
+        upsertMails(freshMails.map((m: MailItem): MailRow => ({
+          id: m.id,
+          thread_id: m.threadId,
+          de: m.de,
+          nombre: m.nombre,
+          asunto: m.asunto,
+          cuerpo: m.cuerpo ?? '',
+          fecha: m.fecha,
+          leido: m.leido,
+          categoria: m.categoria,
+          resumen: m.resumen,
+          respuesta_sugerida: m.respuestaSugerida,
+        })));
+      }
     } catch (err) {
       console.error('[Mails] error:', err);
       setDebugRaw(String(err));
