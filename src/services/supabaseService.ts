@@ -20,8 +20,9 @@ export async function fetchMailsFromDB(): Promise<MailRow[]> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 4000);
+    // Sin cuerpo ni respuesta_sugerida para que sea liviano
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/mails?select=*&order=fecha.desc&limit=60`,
+      `${SUPABASE_URL}/rest/v1/mails?select=id,thread_id,de,nombre,asunto,fecha,leido,categoria,resumen&order=fecha.desc&limit=60`,
       {
         headers: {
           apikey: SUPABASE_ANON_KEY,
@@ -35,6 +36,25 @@ export async function fetchMailsFromDB(): Promise<MailRow[]> {
     return await res.json();
   } catch {
     return [];
+  }
+}
+
+export async function fetchMailDetail(id: string): Promise<Pick<MailRow, 'cuerpo' | 'respuesta_sugerida'> | null> {
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/mails?id=eq.${id}&select=cuerpo,respuesta_sugerida`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+      }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.[0] ?? null;
+  } catch {
+    return null;
   }
 }
 

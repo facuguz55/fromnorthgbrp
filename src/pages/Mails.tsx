@@ -3,7 +3,7 @@ import {
   RefreshCw, Mail, Send, Sparkles, AlertCircle,
   CheckCircle2, Inbox, Copy, EyeOff,
 } from 'lucide-react';
-import { fetchMailsFromDB, upsertMails } from '../services/supabaseService';
+import { fetchMailsFromDB, upsertMails, fetchMailDetail } from '../services/supabaseService';
 import type { MailRow } from '../services/supabaseService';
 import './Mails.css';
 
@@ -348,9 +348,17 @@ export default function Mails() {
     }
   };
 
-  const handleSelectMail = (mail: MailItem) => {
-    setSelected(mail);
+  const handleSelectMail = async (mail: MailItem) => {
     setRespuesta('');
+    // Si no tiene cuerpo (vino del cache liviano), lo carga de Supabase
+    if (!mail.cuerpo) {
+      const detail = await fetchMailDetail(mail.id);
+      if (detail) {
+        setSelected({ ...mail, cuerpo: detail.cuerpo, respuestaSugerida: detail.respuesta_sugerida });
+        return;
+      }
+    }
+    setSelected(mail);
   };
 
   // Guards: si por algún motivo el estado no es array, el render no crashea
