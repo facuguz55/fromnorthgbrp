@@ -88,13 +88,14 @@
   gap: 0.35rem;
   padding: 0.4rem 0.875rem;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--text-secondary);
   white-space: nowrap;
 }
 
 .sv-total strong {
   color: var(--accent-primary);
+  font-size: 1rem;
   font-weight: 800;
 }
 
