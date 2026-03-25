@@ -261,6 +261,55 @@
   height: 160px !important;
 }
 
+/* ── Clientes recurrentes modal ─────────────────────────── */
+.recurrentes-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.recurrentes-modal {
+  width: 100%;
+  max-width: 680px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+}
+
+.recurrentes-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.rec-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s;
+}
+
+.rec-close-btn:hover { color: var(--text-primary); }
+
+.cliente-stat-card--clickable:hover {
+  border-color: var(--accent-primary);
+  background: rgba(6, 182, 212, 0.07);
+  transition: all 0.15s;
+}
+
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 768px) {
   .analytics-page {

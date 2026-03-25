@@ -310,6 +310,30 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator {
   border-color: rgba(100,116,139,0.25);
 }
 
+/* ── Botón editar ────────────────────────────────────────── */
+.cupon-edit-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.3rem 0.45rem;
+  display: flex;
+  align-items: center;
+  transition: all 0.15s;
+}
+
+.cupon-edit-btn:hover:not(:disabled) {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: rgba(6, 182, 212, 0.08);
+}
+
+.cupon-edit-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
 /* ── Toast ───────────────────────────────────────────────── */
 .cupon-toast {
   position: fixed;

@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
 import {
   RefreshCw, Clock, Users, UserCheck, UserPlus,
-  TrendingUp, ShoppingCart, Package, Trophy,
+  TrendingUp, ShoppingCart, Package, Trophy, X,
 } from 'lucide-react';
 import { getSettings } from '../services/dataService';
 import {
@@ -163,6 +163,24 @@ export default function Analytics() {
   const hasMetodos  = metodosConColor.length > 0;
   const hasClientes = totalClientes > 0;
 
+  const [showRecurrentes, setShowRecurrentes] = useState(false);
+
+  const recurrentesLista = useMemo(() => {
+    if (!metrics) return [];
+    const map: Record<string, { nombre: string; email: string; pedidos: number; total: number }> = {};
+    for (const o of metrics.orders) {
+      if (o.payment_status !== 'paid' && o.payment_status !== 'authorized') continue;
+      const email  = o.customer?.email ?? '';
+      const nombre = o.customer?.name  ?? '';
+      const key    = email || nombre;
+      if (!key) continue;
+      if (!map[key]) map[key] = { nombre, email, pedidos: 0, total: 0 };
+      map[key].pedidos++;
+      map[key].total += parseFloat(o.total);
+    }
+    return Object.values(map).filter(c => c.pedidos > 1).sort((a, b) => b.pedidos - a.pedidos);
+  }, [metrics]);
+
   return (
     <div className="analytics-page fade-in">
 
@@ -316,11 +334,17 @@ export default function Analytics() {
                     <span className="cliente-stat-label">Nuevos</span>
                     <span className="cliente-stat-pct nuevos-pct">{pctNuevos}%</span>
                   </div>
-                  <div className="cliente-stat-card">
+                  <div
+                    className="cliente-stat-card cliente-stat-card--clickable"
+                    onClick={() => setShowRecurrentes(true)}
+                    title="Ver lista de clientes recurrentes"
+                    style={{ cursor: 'pointer' }}
+                  >
                     <UserCheck size={20} className="cliente-stat-icon recurrentes" />
                     <span className="cliente-stat-num">{metrics?.clientesRecurrentes ?? 0}</span>
                     <span className="cliente-stat-label">Recurrentes</span>
                     <span className="cliente-stat-pct recurrentes-pct">{pctRecurrentes}%</span>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--accent-primary)', marginTop: '0.1rem' }}>Ver lista →</span>
                   </div>
                 </div>
                 <div className="chart-wrapper clientes-pie-wrapper">
@@ -477,6 +501,59 @@ export default function Analytics() {
             </table>
           </div>
         </section>
+      )}
+
+      {/* ══ Modal: Clientes Recurrentes ══════════════════════════════════════ */}
+      {showRecurrentes && (
+        <div className="recurrentes-overlay" onClick={() => setShowRecurrentes(false)}>
+          <div className="recurrentes-modal glass-panel" onClick={e => e.stopPropagation()}>
+            <div className="recurrentes-modal-header">
+              <div className="section-title-row" style={{ margin: 0 }}>
+                <UserCheck size={18} className="section-icon" />
+                <h2 style={{ margin: 0 }}>Clientes recurrentes</h2>
+                <span className="chart-badge" style={{ marginLeft: '0.5rem' }}>{recurrentesLista.length}</span>
+              </div>
+              <button className="rec-close-btn" onClick={() => setShowRecurrentes(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <p className="section-desc" style={{ margin: '0.25rem 0 1rem' }}>
+              Clientes con más de una compra en los últimos 90 días, ordenados por cantidad de pedidos.
+            </p>
+            {recurrentesLista.length === 0 ? (
+              <div className="chart-empty"><span>Sin clientes recurrentes en este período</span></div>
+            ) : (
+              <div className="tn-table-wrapper" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                <table className="tn-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Cliente</th>
+                      <th>Email</th>
+                      <th>Pedidos</th>
+                      <th>Total gastado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recurrentesLista.map((c, i) => (
+                      <tr key={c.email || c.nombre}>
+                        <td className="tn-td-num">{i + 1}</td>
+                        <td className="tn-td-cliente">
+                          <span className="tn-client-name">{c.nombre || '—'}</span>
+                        </td>
+                        <td className="tn-td-cliente">
+                          <span className="tn-client-email">{c.email || '—'}</span>
+                        </td>
+                        <td style={{ fontWeight: 600, color: 'var(--accent-primary)' }}>{c.pedidos}</td>
+                        <td className="tn-td-total">{fmtARS(c.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
     </div>

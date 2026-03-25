@@ -1,11 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, RefreshCw, Search, DollarSign } from 'lucide-react';
-import { getSettings } from '../services/dataService';
-
-async function fetchSheetByGid(_url: string, _gid: string): Promise<{ headers: string[]; rows: Record<string, string>[] }> {
-  return { headers: [], rows: [] };
-}
+import { getSettings, fetchSheetByGid } from '../services/dataService';
 import './SheetViewer.css';
 
 const fmtARS = (n: number) =>
@@ -39,7 +35,7 @@ export default function SheetViewer() {
     setError(false);
     try {
       const settings = getSettings();
-      const url = (settings as any)?.googleSheetsUrl ?? '';
+      const url = (settings as any)?.googleSheetsUrl?.trim() ?? '';
       if (!url) { setError(true); return; }
       const data = await fetchSheetByGid(url, gid);
       if (data.headers.length === 0) { setError(true); return; }

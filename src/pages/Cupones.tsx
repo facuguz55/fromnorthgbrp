@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Tag, Plus, RefreshCw, AlertCircle,
-  CheckCircle2, Percent, DollarSign, Truck, X,
+  CheckCircle2, Percent, DollarSign, Truck, X, Pencil,
 } from 'lucide-react';
+import { getSettings } from '../services/dataService';
 import './Cupones.css';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const WEBHOOK_GET    = 'https://devwebhookn8n.santafeia.shop/webhook/cupones-web-f';
 const WEBHOOK_CREATE = 'https://devwebhookn8n.santafeia.shop/webhook/crear-cupon-web-f';
+const TN_BASE        = 'https://api.tiendanube.com/v1';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -101,13 +103,16 @@ function EstadoBadge({ valid, is_deleted }: { valid: boolean; is_deleted: boolea
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function Cupones() {
-  const [cupones,   setCupones]   = useState<Cupon[]>([]);
-  const [loading,   setLoading]   = useState(false);
-  const [error,     setError]     = useState<string | null>(null);
-  const [showForm,  setShowForm]  = useState(false);
-  const [form,      setForm]      = useState<FormState>(FORM_EMPTY);
-  const [creating,  setCreating]  = useState(false);
-  const [toast,     setToast]     = useState<{ type: 'ok' | 'err'; msg: string } | null>(null);
+  const [cupones,       setCupones]       = useState<Cupon[]>([]);
+  const [loading,       setLoading]       = useState(false);
+  const [error,         setError]         = useState<string | null>(null);
+  const [showForm,      setShowForm]      = useState(false);
+  const [form,          setForm]          = useState<FormState>(FORM_EMPTY);
+  const [creating,      setCreating]      = useState(false);
+  const [toast,         setToast]         = useState<{ type: 'ok' | 'err'; msg: string } | null>(null);
+  const [editingCupon,  setEditingCupon]  = useState<Cupon | null>(null);
+  const [editForm,      setEditForm]      = useState<FormState>(FORM_EMPTY);
+  const [updating,      setUpdating]      = useState(false);
 
   const showToast = (type: 'ok' | 'err', msg: string) => {
     setToast({ type, msg });
@@ -134,6 +139,73 @@ export default function Cupones() {
 
   const handleField = (k: keyof FormState, v: string) =>
     setForm(prev => ({ ...prev, [k]: v }));
+
+  const handleEditField = (k: keyof FormState, v: string) =>
+    setEditForm(prev => ({ ...prev, [k]: v }));
+
+  const handleStartEdit = (c: Cupon) => {
+    setEditingCupon(c);
+    setEditForm({
+      code:        c.code,
+      type:        c.type,
+      value:       c.type !== 'shipping' ? String(parseFloat(String(c.value)) || '') : '0',
+      min_price:   c.min_price   != null ? String(parseFloat(String(c.min_price))) : '',
+      max_uses:    c.max_uses    != null ? String(c.max_uses) : '',
+      valid_until: c.end_date    ?? '',
+    });
+    setShowForm(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingCupon) return;
+    const settings = getSettings();
+    const storeId  = settings?.tiendanubeStoreId?.trim() ?? '';
+    const token    = settings?.tiendanubeToken?.trim()    ?? '';
+    if (!storeId || !token) {
+      showToast('err', 'Configurá el Store ID y Token en Ajustes.');
+      return;
+    }
+    setUpdating(true);
+    const body: Record<string, unknown> = {
+      type:  editForm.type,
+      value: editForm.type !== 'shipping' ? parseFloat(editForm.value) || 0 : 0,
+    };
+    if (editForm.min_price)   body.min_price   = parseFloat(editForm.min_price);
+    if (editForm.max_uses)    body.max_uses    = parseInt(editForm.max_uses);
+    if (editForm.valid_until) body.valid_until = editForm.valid_until;
+
+    const tnHeaders: Record<string, string> = {
+      Authentication:   `bearer ${token}`,
+      'User-Agent':     'NovaDashboard (contact@fromnorthgb.com)',
+      'Content-Type':   'application/json',
+    };
+
+    try {
+      let res: Response;
+      try {
+        res = await fetch(`${TN_BASE}/${storeId}/coupons/${editingCupon.id}`, {
+          method:  'PUT',
+          headers: tnHeaders,
+          body:    JSON.stringify(body),
+        });
+      } catch {
+        const qs = new URLSearchParams({ storeId, token, path: `coupons/${editingCupon.id}` });
+        res = await fetch(`/api/tiendanube?${qs}`, {
+          method:  'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(body),
+        });
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast('ok', `Cupón "${editingCupon.code}" actualizado.`);
+      setEditingCupon(null);
+      fetchCupones();
+    } catch (e) {
+      showToast('err', `No se pudo actualizar. ${e}`);
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   const handleCreate = async () => {
     if (!form.code.trim() || !form.value.trim()) {
@@ -193,6 +265,104 @@ export default function Cupones() {
           </button>
         </div>
       </div>
+
+      {/* ── Formulario de edición ── */}
+      {editingCupon && (
+        <div className="cupones-form glass-panel fade-in">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.1rem' }}>
+            <h2 className="cupones-form-title" style={{ margin: 0 }}>
+              Editar cupón — <span style={{ color: 'var(--accent-primary)', fontFamily: 'monospace' }}>{editingCupon.code}</span>
+            </h2>
+            <button className="btn-secondary" onClick={() => setEditingCupon(null)} style={{ padding: '0.3rem 0.7rem', fontSize: '0.75rem' }}>
+              <X size={13} /> Cancelar
+            </button>
+          </div>
+
+          <div className="cupones-form-grid">
+            {/* Tipo */}
+            <div className="form-field">
+              <label className="form-label">Tipo *</label>
+              <div className="form-tipo-group">
+                {([
+                  { key: 'percentage', label: '% Descuento', icon: <Percent size={13} /> },
+                  { key: 'absolute',   label: '$ Fijo',      icon: <DollarSign size={13} /> },
+                  { key: 'shipping',   label: 'Envío gratis', icon: <Truck size={13} /> },
+                ] as { key: TipoDescuento; label: string; icon: React.ReactNode }[]).map(t => (
+                  <button
+                    key={t.key}
+                    className={`tipo-btn ${editForm.type === t.key ? 'active' : ''}`}
+                    onClick={() => handleEditField('type', t.key)}
+                    type="button"
+                  >
+                    {t.icon}{t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Valor */}
+            {editForm.type !== 'shipping' && (
+              <div className="form-field">
+                <label className="form-label">
+                  {editForm.type === 'percentage' ? 'Porcentaje (%)' : 'Monto ($)'} *
+                </label>
+                <input
+                  className="form-input"
+                  type="number"
+                  min="0"
+                  value={editForm.value}
+                  onChange={e => handleEditField('value', e.target.value)}
+                />
+              </div>
+            )}
+
+            {/* Compra mínima */}
+            <div className="form-field">
+              <label className="form-label">Compra mínima ($) <span className="form-label-opt">opcional</span></label>
+              <input
+                className="form-input"
+                type="number"
+                min="0"
+                placeholder="Ej: 5000"
+                value={editForm.min_price}
+                onChange={e => handleEditField('min_price', e.target.value)}
+              />
+            </div>
+
+            {/* Límite de usos */}
+            <div className="form-field">
+              <label className="form-label">Límite de usos <span className="form-label-opt">opcional</span></label>
+              <input
+                className="form-input"
+                type="number"
+                min="1"
+                placeholder="Vacío = ilimitado"
+                value={editForm.max_uses}
+                onChange={e => handleEditField('max_uses', e.target.value)}
+              />
+            </div>
+
+            {/* Vencimiento */}
+            <div className="form-field">
+              <label className="form-label">Vence el <span className="form-label-opt">opcional</span></label>
+              <input
+                className="form-input"
+                type="date"
+                value={editForm.valid_until}
+                onChange={e => handleEditField('valid_until', e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="cupones-form-footer">
+            <button className="btn-primary" onClick={handleSaveEdit} disabled={updating}>
+              {updating
+                ? <><RefreshCw size={14} className="spinning" /> Guardando...</>
+                : <><Pencil size={14} /> Guardar cambios</>}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Formulario de creación ── */}
       {showForm && (
@@ -347,6 +517,7 @@ export default function Cupones() {
                   <th>Usos</th>
                   <th>Vence</th>
                   <th>Estado</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -371,6 +542,16 @@ export default function Cupones() {
                     </td>
                     <td className="cupon-secondary">{formatFecha(c.end_date)}</td>
                     <td><EstadoBadge valid={c.valid} is_deleted={c.is_deleted} /></td>
+                    <td>
+                      <button
+                        className="cupon-edit-btn"
+                        onClick={() => handleStartEdit(c)}
+                        title="Editar cupón"
+                        disabled={c.is_deleted}
+                      >
+                        <Pencil size={13} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

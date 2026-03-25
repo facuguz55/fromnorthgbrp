@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import MetricCard from '../components/MetricCard';
 import SalesChart from '../components/SalesChart';
 import {
   RefreshCw, DollarSign, Activity, CalendarDays,
-  ShoppingBag, Trophy, ShoppingCart, Store, TrendingUp, Package,
+  ShoppingBag, Trophy, ShoppingCart, Store, UserCheck, MousePointerClick, Users,
 } from 'lucide-react';
-import { getSettings } from '../services/dataService';
+import { getSettings, fetchSheetRowCount } from '../services/dataService';
 import { fetchTNMetrics, clearTNCache, getPersistedMetrics } from '../services/tiendanubeService';
 import type { TNMetrics } from '../services/tiendanubeService';
+
+const GID_CLICKS       = '1982854970';
+const GID_CONVERTIDOS  = '11747759';
 import './Dashboard.css';
 
 const fmt    = (v: number) => v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -42,13 +46,15 @@ function getResetLabels() {
 
 export default function Dashboard() {
   const persisted = getPersistedMetrics();
-  const [loading, setLoading]   = useState(!persisted);
-  const [syncing, setSyncing]   = useState(false);
-  const [loaded, setLoaded]     = useState(0);
-  const [metrics, setMetrics]   = useState<TNMetrics | null>(persisted);
-  const [error, setError]       = useState(false);
+  const [loading, setLoading]         = useState(!persisted);
+  const [syncing, setSyncing]         = useState(false);
+  const [loaded, setLoaded]           = useState(0);
+  const [metrics, setMetrics]         = useState<TNMetrics | null>(persisted);
+  const [error, setError]             = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
-  const [resets, setResets]     = useState(getResetLabels);
+  const [resets, setResets]           = useState(getResetLabels);
+  const [clicksCount, setClicksCount]         = useState<number | null>(null);
+  const [convertidosCount, setConvertidosCount] = useState<number | null>(null);
 
   useEffect(() => {
     const id = setInterval(() => setResets(getResetLabels()), 60_000);
@@ -78,6 +84,14 @@ export default function Dashboard() {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  useEffect(() => {
+    const settings = getSettings();
+    const url = (settings as any)?.googleSheetsUrl?.trim() ?? '';
+    if (!url) return;
+    fetchSheetRowCount(url, GID_CLICKS).then(setClicksCount);
+    fetchSheetRowCount(url, GID_CONVERTIDOS).then(setConvertidosCount);
+  }, []);
 
   const settings     = getSettings();
   const isConfigured = !!(settings?.tiendanubeStoreId && settings?.tiendanubeToken);
@@ -114,9 +128,31 @@ export default function Dashboard() {
           <MetricCard title="Ganancia Total (90d)"  value={`$${fmtInt(metrics.totalFacturado)}`} icon={<DollarSign size={18} />} />
           <MetricCard title="Ventas Hoy"            value={`$${fmt(metrics.ventasHoy)}`}         icon={<Activity size={18} />}     subtitle={resets.labelHoy} />
           <MetricCard title="Ventas Semana"         value={`$${fmt(metrics.ventasSemana)}`}      icon={<CalendarDays size={18} />} subtitle={resets.labelSemana} />
-          <MetricCard title="Ventas este mes"       value={`$${fmt(metrics.ventasMes)}`}         icon={<Store size={18} />} />
-          <MetricCard title="Ticket promedio"       value={`$${fmt(metrics.ticketPromedio)}`}    icon={<TrendingUp size={18} />} />
-          <MetricCard title="Órdenes pagadas"       value={fmtInt(metrics.ordenesPagadas)}       icon={<Package size={18} />} subtitle={`${fmtInt(metrics.ordenesPendientes)} pendientes`} />
+          <MetricCard title="Clientes recurrentes"  value={fmtInt(metrics.clientesRecurrentes)}  icon={<UserCheck size={18} />} subtitle={`${fmtInt(metrics.clientesNuevos)} nuevos`} />
+          <Link
+            to="/sheet-viewer"
+            state={{ gid: GID_CLICKS, title: 'Clicks de seguimiento', subtitle: 'Registros de clicks' }}
+            className="metric-card-link"
+          >
+            <MetricCard
+              title="Clicks de seguimiento"
+              value={clicksCount !== null ? fmtInt(clicksCount) : '—'}
+              icon={<MousePointerClick size={18} />}
+              subtitle="Ver registros →"
+            />
+          </Link>
+          <Link
+            to="/sheet-viewer"
+            state={{ gid: GID_CONVERTIDOS, title: 'Seguimientos convertidos', subtitle: 'Clientes que completaron el seguimiento' }}
+            className="metric-card-link"
+          >
+            <MetricCard
+              title="Seguimientos convertidos"
+              value={convertidosCount !== null ? fmtInt(convertidosCount) : '—'}
+              icon={<Users size={18} />}
+              subtitle="Ver clientes →"
+            />
+          </Link>
         </div>
       )}
 
@@ -186,13 +222,7 @@ export default function Dashboard() {
 
       {/* ── Gráfico ventas por día ── */}
       {metrics && metrics.ventasPorDia.length > 0 && (
-        <div className="metodo-pago-strip glass-panel" style={{ padding: '1.25rem 1.5rem' }}>
-          <div className="strip-title-row" style={{ marginBottom: '0.75rem' }}>
-            <Activity size={15} className="strip-icon" />
-            <span className="strip-title">Ventas por día (últimos 90 días)</span>
-          </div>
-          <SalesChart data={metrics.ventasPorDia.slice(-30)} />
-        </div>
+        <SalesChart data={metrics.ventasPorDia} />
       )}
 
       {/* ── Loading ── */}

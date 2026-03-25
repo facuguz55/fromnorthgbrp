@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { getSettings } from '../services/dataService';
-import { fetchTNMetrics } from '../services/tiendanubeService';
+import { fetchTNMetrics, getPersistedMetrics } from '../services/tiendanubeService';
 import SalesCalendarDetail from '../components/SalesCalendarDetail';
 
 export default function Calendar() {
-  const [loading, setLoading] = useState(true);
-  const [ventasPorDia, setVentasPorDia] = useState<{ name: string; value: number }[]>([]);
+  const persisted = getPersistedMetrics();
+  const [loading, setLoading] = useState(!persisted);
+  const [ventasPorDia, setVentasPorDia] = useState<{ name: string; value: number }[]>(persisted?.ventasPorDia ?? []);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
 
   const fetchData = async () => {
-    setLoading(true);
+    const hasCached = !!getPersistedMetrics();
+    if (!hasCached) setLoading(true);
     try {
       const settings = getSettings();
       const storeId  = settings?.tiendanubeStoreId?.trim() ?? '';

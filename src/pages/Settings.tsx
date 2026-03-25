@@ -17,6 +17,7 @@ const ACCENT_COLORS = [
 const DEFAULT_SETTINGS: DashboardSettings = {
   tiendanubeToken: '',
   tiendanubeStoreId: '',
+  googleSheetsUrl: '',
   displayName: '',
   accentColor: '#06b6d4',
   compactMode: false,
@@ -186,6 +187,27 @@ export default function Settings() {
                     <option value="en">English</option>
                     <option value="pt">Português</option>
                   </select>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ── Google Sheets ──────────────────── */}
+          <section className="settings-section glass-panel">
+            <h2 className="section-title"><Database size={18} /> Google Sheets</h2>
+            <div className="section-body">
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="googleSheetsUrl">URL del Google Sheet</label>
+                  <input
+                    type="text"
+                    id="googleSheetsUrl"
+                    name="googleSheetsUrl"
+                    value={formData.googleSheetsUrl}
+                    onChange={handleChange}
+                    placeholder="https://docs.google.com/spreadsheets/d/..."
+                  />
+                  <span className="help-text">Usado para Clicks de seguimiento y Seguimientos convertidos</span>
                 </div>
               </div>
             </div>
