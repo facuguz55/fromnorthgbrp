@@ -1,0 +1,117 @@
+/* ── Chart Container ─────────────────────────────────── */
+.chart-container {
+  padding: 1.25rem 1.5rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  height: 300px;
+}
+
+/* ── Chart Header ─────────────────────────────────────── */
+.chart-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  padding-bottom: 0.625rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.chart-header-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* ── Titles ──────────────────────────────────────────── */
+.chart-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.005em;
+  line-height: 1.2;
+}
+
+.chart-subtitle {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+/* ── Badge ───────────────────────────────────────────── */
+.chart-badge {
+  flex-shrink: 0;
+  background: rgba(6, 182, 212, 0.1);
+  color: var(--accent-primary);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  white-space: nowrap;
+}
+
+.chart-badge.bg-indigo {
+  background: rgba(99, 102, 241, 0.1);
+  color: #818cf8;
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+/* ── Chart Wrapper ───────────────────────────────────── */
+.chart-wrapper {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+
+/* ── Empty State ─────────────────────────────────────── */
+.chart-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  opacity: 0.6;
+}
+
+/* ── Custom Tooltip ──────────────────────────────────── */
+.chart-tooltip {
+  background: rgba(11, 15, 25, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 0.625rem 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 120px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.chart-tooltip-label {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 0.1rem;
+}
+
+.chart-tooltip-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.chart-tooltip-sub {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-top: 0.05rem;
+}

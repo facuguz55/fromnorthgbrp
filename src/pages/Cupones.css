@@ -1,0 +1,345 @@
+/* ══════════════════════════════════════════════════════════
+   CUPONES PAGE
+   ══════════════════════════════════════════════════════════ */
+
+.cupones-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ── Header ──────────────────────────────────────────────── */
+.cupones-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.1rem 1.4rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.cupones-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.cupones-header-icon {
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.cupones-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.cupones-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0.1rem 0 0;
+}
+
+.cupones-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.cupones-btn-nuevo {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* ── Formulario ──────────────────────────────────────────── */
+.cupones-form {
+  padding: 1.3rem 1.5rem 1.5rem;
+}
+
+.cupones-form-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 1.1rem;
+}
+
+.cupones-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.form-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.form-label-opt {
+  font-weight: 400;
+  text-transform: none;
+  color: var(--text-muted);
+  letter-spacing: 0;
+}
+
+.form-input {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.8rem;
+  font-size: 0.83rem;
+  color: var(--text-primary);
+  transition: border-color 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.form-input::placeholder {
+  color: var(--text-muted);
+}
+
+input[type="date"].form-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.6);
+  cursor: pointer;
+}
+
+/* Tipo selector */
+.form-tipo-group {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.tipo-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.42rem 0.8rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.tipo-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+}
+
+.tipo-btn.active {
+  border-color: var(--accent-primary);
+  background: rgba(var(--accent-primary-rgb, 6, 182, 212), 0.12);
+  color: var(--accent-primary);
+}
+
+.cupones-form-footer {
+  margin-top: 1.2rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ── Lista ───────────────────────────────────────────────── */
+.cupones-lista {
+  padding: 1.1rem 1.4rem;
+}
+
+.cupones-lista-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.cupones-lista-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.cupones-lista-count {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+}
+
+.cupones-loading,
+.cupones-error,
+.cupones-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 2.5rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.83rem;
+  text-align: center;
+}
+
+.cupones-error {
+  color: #f87171;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.cupones-loading {
+  flex-direction: row;
+}
+
+.cupones-empty-icon {
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+.cupones-empty-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+  margin: 0;
+}
+
+/* ── Tabla ───────────────────────────────────────────────── */
+.cupones-table-wrap {
+  overflow-x: auto;
+}
+
+.cupones-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.cupones-table th {
+  text-align: left;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding: 0 0.9rem 0.7rem;
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+.cupones-table th:first-child { padding-left: 0; }
+
+.cupones-table td {
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+.cupones-table td:first-child { padding-left: 0; }
+
+.cupones-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.cupones-table tbody tr:hover td {
+  background: rgba(255,255,255,0.02);
+}
+
+.cupon-code {
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent-primary);
+  letter-spacing: 0.05em;
+  background: rgba(var(--accent-primary-rgb, 6, 182, 212), 0.08);
+  border: 1px solid rgba(var(--accent-primary-rgb, 6, 182, 212), 0.2);
+  border-radius: var(--radius-sm);
+  padding: 0.2rem 0.55rem;
+}
+
+.cupon-tipo {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-secondary);
+}
+
+.cupon-secondary {
+  color: var(--text-muted);
+}
+
+.cupon-estado {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid;
+}
+
+.cupon-estado.activo {
+  color: #10b981;
+  background: rgba(16,185,129,0.1);
+  border-color: rgba(16,185,129,0.3);
+}
+
+.cupon-estado.inactivo {
+  color: #64748b;
+  background: rgba(100,116,139,0.1);
+  border-color: rgba(100,116,139,0.25);
+}
+
+/* ── Toast ───────────────────────────────────────────────── */
+.cupon-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  font-weight: 500;
+  z-index: 1000;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+  animation: toast-in 0.2s ease;
+}
+
+.cupon-toast.ok {
+  background: rgba(16,185,129,0.15);
+  border: 1px solid rgba(16,185,129,0.35);
+  color: #10b981;
+}
+
+.cupon-toast.err {
+  background: rgba(239,68,68,0.15);
+  border: 1px solid rgba(239,68,68,0.35);
+  color: #f87171;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

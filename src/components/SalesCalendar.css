@@ -1,0 +1,138 @@
+.sales-calendar {
+  padding: 1.25rem 1.5rem;
+  position: relative;
+}
+
+/* ── Header ──────────────────────────────────────────── */
+.cal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.cal-header h3 {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+
+.cal-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.cal-legend-label {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.cal-legend-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+}
+
+/* ── Months row ──────────────────────────────────────── */
+.cal-months {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.cal-month-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+/* ── Grid ────────────────────────────────────────────── */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.cal-day-label {
+  text-align: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding-bottom: 0.3rem;
+}
+
+.cal-cell {
+  aspect-ratio: 1;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  transition: transform 0.1s, box-shadow 0.1s;
+  position: relative;
+}
+
+.cal-cell:hover:not(.cal-empty):not(.cal-future) {
+  transform: scale(1.25);
+  z-index: 2;
+}
+
+.cal-day-num {
+  font-size: 0.55rem;
+  color: transparent;
+  user-select: none;
+  line-height: 1;
+}
+
+.cal-empty {
+  background: transparent;
+  cursor: default;
+}
+
+.cal-future {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* ── Color levels ────────────────────────────────────── */
+.cal-l0 { background: rgba(6, 182, 212, 0.07); }
+.cal-l1 { background: rgba(6, 182, 212, 0.22); }
+.cal-l2 { background: rgba(6, 182, 212, 0.42); }
+.cal-l3 { background: rgba(6, 182, 212, 0.65); }
+.cal-l4 { background: rgba(6, 182, 212, 0.88); }
+
+/* ── Today highlight ─────────────────────────────────── */
+.cal-today {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+/* ── Tooltip ─────────────────────────────────────────── */
+.cal-tooltip {
+  position: fixed;
+  transform: translateX(-50%) translateY(-100%);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-highlight);
+  border-radius: var(--radius-md);
+  padding: 0.3rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  pointer-events: none;
+  z-index: 200;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+/* ── Responsive ──────────────────────────────────────── */
+@media (max-width: 900px) {
+  .cal-months {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+}
