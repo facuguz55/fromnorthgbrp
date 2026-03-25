@@ -44,6 +44,31 @@ export interface StockItem {
   fechaActualizacion: string;
 }
 
+export interface StockItemWithIds extends StockItem {
+  productId: number;
+  variantId: number;
+}
+
+export interface TNCustomer {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  total_spent: string;
+  orders_count: number;
+  created_at: string;
+  last_order_id: number | null;
+}
+
+export interface TNCategory {
+  id: number;
+  name: { es?: string; en?: string; [k: string]: string | undefined };
+  parent: { id: number } | null;
+  subcategories: { id: number }[];
+  handle: { es?: string; [k: string]: string | undefined };
+  created_at: string;
+}
+
 export interface TNMetrics {
   orders: TNOrder[];
   // Revenue
@@ -317,6 +342,132 @@ export async function fetchTNProducts(storeId: string, token: string): Promise<S
   }
 
   return items;
+}
+
+export async function fetchTNProductsForManagement(storeId: string, token: string): Promise<StockItemWithIds[]> {
+  const allProducts: TNRawProduct[] = [];
+
+  for (let page = 1; page <= 10; page++) {
+    const { data, hasMore } = await tnFetch(storeId, token, 'products', {
+      per_page: '200',
+      page: String(page),
+    });
+    allProducts.push(...(data as TNRawProduct[]));
+    if (!hasMore) break;
+  }
+
+  const items: StockItemWithIds[] = [];
+
+  for (const prod of allProducts) {
+    const baseName = prod.name.es ?? prod.name.en ?? Object.values(prod.name)[0] ?? String(prod.id);
+
+    for (const v of prod.variants) {
+      const variantLabel = v.values
+        .map(val => val.es ?? val.en ?? Object.values(val).find(x => x) ?? '')
+        .filter(Boolean)
+        .join(' / ');
+
+      const nombre = variantLabel ? `${baseName} — ${variantLabel}` : baseName;
+      const sku    = v.sku ?? `${prod.id}-${v.id}`;
+
+      items.push({
+        nombre,
+        sku,
+        stock:  v.stock ?? 0,
+        precio: parseAmount(v.price),
+        fechaActualizacion: v.updated_at
+          ? new Date(v.updated_at).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })
+          : '',
+        productId: prod.id,
+        variantId: v.id,
+      });
+    }
+  }
+
+  return items;
+}
+
+export async function fetchTNCustomers(storeId: string, token: string): Promise<TNCustomer[]> {
+  const all: TNCustomer[] = [];
+
+  for (let page = 1; page <= 10; page++) {
+    const { data, hasMore } = await tnFetch(storeId, token, 'customers', {
+      per_page: '200',
+      page: String(page),
+    });
+    all.push(...(data as TNCustomer[]));
+    if (!hasMore) break;
+  }
+
+  return all.sort((a, b) => parseFloat(b.total_spent) - parseFloat(a.total_spent));
+}
+
+export async function fetchTNCategories(storeId: string, token: string): Promise<TNCategory[]> {
+  const { data } = await tnFetch(storeId, token, 'categories', { per_page: '200' });
+  return data as TNCategory[];
+}
+
+export async function updateTNCategory(
+  storeId: string,
+  token: string,
+  categoryId: number,
+  data: { name: Record<string, string> },
+): Promise<void> {
+  const TN_BASE_URL = 'https://api.tiendanube.com/v1';
+  const headers: Record<string, string> = {
+    Authentication: `bearer ${token}`,
+    'User-Agent': 'NovaDashboard (contact@fromnorthgb.com)',
+    'Content-Type': 'application/json',
+  };
+
+  let res: Response;
+  try {
+    res = await fetch(`${TN_BASE_URL}/${storeId}/categories/${categoryId}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(data),
+    });
+  } catch {
+    const qs = new URLSearchParams({ storeId, token, path: `categories/${categoryId}` });
+    res = await fetch(`/api/tiendanube?${qs}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
+
+export async function updateTNProductVariant(
+  storeId: string,
+  token: string,
+  productId: number,
+  variantId: number,
+  data: { price?: string; stock?: number },
+): Promise<void> {
+  const TN_BASE_URL = 'https://api.tiendanube.com/v1';
+  const headers: Record<string, string> = {
+    Authentication: `bearer ${token}`,
+    'User-Agent': 'NovaDashboard (contact@fromnorthgb.com)',
+    'Content-Type': 'application/json',
+  };
+
+  let res: Response;
+  try {
+    res = await fetch(`${TN_BASE_URL}/${storeId}/products/${productId}/variants/${variantId}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(data),
+    });
+  } catch {
+    const qs = new URLSearchParams({ storeId, token, path: `products/${productId}/variants/${variantId}` });
+    res = await fetch(`/api/tiendanube?${qs}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }
 
 // ── Metrics computation ───────────────────────────────────────────────────────

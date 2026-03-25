@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import {
   RefreshCw, Clock, Users, UserCheck, UserPlus,
-  TrendingUp, ShoppingCart, Package, Trophy, X,
+  TrendingUp, ShoppingCart, Package, Trophy, X, Search,
 } from 'lucide-react';
 import { getSettings } from '../services/dataService';
 import {
@@ -164,6 +164,38 @@ export default function Analytics() {
   const hasClientes = totalClientes > 0;
 
   const [showRecurrentes, setShowRecurrentes] = useState(false);
+
+  // ── Filtros de órdenes ─────────────────────────────────────────────────────
+  const [ordenSearch,        setOrdenSearch]        = useState('');
+  const [ordenStatusFilter,  setOrdenStatusFilter]  = useState<'all' | 'paid' | 'pending' | 'other'>('all');
+
+  const filteredOrders = useMemo(() => {
+    if (!metrics) return [];
+    const q = ordenSearch.toLowerCase();
+    return metrics.orders.filter(o => {
+      // Filtro de búsqueda: nombre, email o número de orden
+      if (q) {
+        const matchCliente = (o.customer?.name?.toLowerCase() ?? '').includes(q)
+          || (o.customer?.email?.toLowerCase() ?? '').includes(q);
+        const matchNumero = String(o.number).includes(q);
+        if (!matchCliente && !matchNumero) return false;
+      }
+      // Filtro de estado
+      if (ordenStatusFilter === 'paid') {
+        return o.payment_status === 'paid' || o.payment_status === 'authorized';
+      }
+      if (ordenStatusFilter === 'pending') {
+        return o.payment_status === 'pending' || o.payment_status === 'unpaid';
+      }
+      if (ordenStatusFilter === 'other') {
+        return o.payment_status !== 'paid'
+          && o.payment_status !== 'authorized'
+          && o.payment_status !== 'pending'
+          && o.payment_status !== 'unpaid';
+      }
+      return true;
+    });
+  }, [metrics, ordenSearch, ordenStatusFilter]);
 
   const recurrentesLista = useMemo(() => {
     if (!metrics) return [];
@@ -480,6 +512,40 @@ export default function Analytics() {
           <p className="section-desc">
             Órdenes más recientes · {fmtNum(metrics.orders.length)} registros cargados.
           </p>
+
+          {/* ── Filtros de órdenes ── */}
+          <div className="ordenes-filters glass-panel">
+            <div className="ordenes-search-box">
+              <Search size={14} className="ordenes-search-icon" />
+              <input
+                type="text"
+                placeholder="Buscar por cliente, email o Nº de orden..."
+                value={ordenSearch}
+                onChange={e => setOrdenSearch(e.target.value)}
+                className="ordenes-search-input"
+              />
+            </div>
+            <div className="ordenes-status-btns">
+              {([
+                { key: 'all',     label: 'Todos' },
+                { key: 'paid',    label: 'Pagado' },
+                { key: 'pending', label: 'Pendiente' },
+                { key: 'other',   label: 'Cancelado/Otro' },
+              ] as { key: typeof ordenStatusFilter; label: string }[]).map(({ key, label }) => (
+                <button
+                  key={key}
+                  className={`ordenes-status-btn ${ordenStatusFilter === key ? 'active' : ''}`}
+                  onClick={() => setOrdenStatusFilter(key)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <span className="ordenes-count-label">
+              {filteredOrders.length} de {metrics.orders.length} órdenes
+            </span>
+          </div>
+
           <div className="tn-table-wrapper glass-panel">
             <table className="tn-table">
               <thead>
@@ -494,11 +560,16 @@ export default function Analytics() {
                 </tr>
               </thead>
               <tbody>
-                {metrics.orders.map((o, i) => (
+                {filteredOrders.map((o, i) => (
                   <OrdenRow key={o.id} o={o} i={i} />
                 ))}
               </tbody>
             </table>
+            {filteredOrders.length === 0 && (
+              <div className="chart-empty" style={{ padding: '2rem' }}>
+                <span>No hay órdenes que coincidan con los filtros</span>
+              </div>
+            )}
           </div>
         </section>
       )}

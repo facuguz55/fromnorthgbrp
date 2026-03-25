@@ -1,0 +1,228 @@
+/* ── Page ────────────────────────────────────────────────── */
+.clientes-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ── Header ──────────────────────────────────────────────── */
+.clientes-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.clientes-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  margin: 0 0 0.2rem;
+}
+
+.clientes-title-icon {
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.clientes-meta {
+  font-size: 0.78rem;
+}
+
+/* ── Stats Strip ─────────────────────────────────────────── */
+.clientes-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .clientes-stats { grid-template-columns: 1fr; }
+}
+
+.clientes-stat {
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.clientes-stat-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.clientes-stat-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* ── Filters ─────────────────────────────────────────────── */
+.clientes-filters {
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem 1.5rem;
+}
+
+.clientes-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 200px;
+  max-width: 340px;
+}
+
+.clientes-search-icon {
+  position: absolute;
+  left: 0.65rem;
+  color: var(--text-muted);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.clientes-search-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.48rem 0.75rem 0.48rem 2.1rem;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.clientes-search-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.clientes-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.clientes-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.clientes-filter-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.clientes-filter-btns {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.clientes-filter-btn {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.clientes-filter-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+}
+
+.clientes-filter-btn.active {
+  border-color: var(--accent-primary);
+  background: rgba(6, 182, 212, 0.1);
+  color: var(--accent-primary);
+  font-weight: 700;
+}
+
+.clientes-count-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+/* ── State / Empty ───────────────────────────────────────── */
+.clientes-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 3rem 2rem;
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.clientes-state h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.clientes-state p {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
+  max-width: 400px;
+}
+
+.clientes-state-icon {
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+.clientes-state-error .clientes-state-icon {
+  color: #f87171;
+  opacity: 0.7;
+}
+
+/* ── Orders cell ─────────────────────────────────────────── */
+.clientes-td-orders {
+  font-weight: 700;
+  color: var(--accent-primary);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .clientes-page { padding: 1rem; gap: 1.25rem; }
+  .clientes-title { font-size: 1.25rem; }
+  .clientes-filters { gap: 0.65rem 1rem; }
+  .clientes-search-box { max-width: 100%; }
+}
