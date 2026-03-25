@@ -139,13 +139,47 @@ export function paymentStatusClass(s: TNOrder['payment_status']): string {
   return 'badge-muted';
 }
 
-// ── In-memory cache ───────────────────────────────────────────────────────────
+// ── Cache (memoria + localStorage) ───────────────────────────────────────────
+
+const CACHE_KEY = 'tn_metrics_cache';
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutos — datos frescos
 
 let metricsCache: { data: TNMetrics; ts: number } | null = null;
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+
+/** Lee el cache persistido en localStorage al iniciar */
+function loadPersistedCache(): { data: TNMetrics; ts: number } | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { data: TNMetrics; ts: number };
+    if (!parsed?.data || !parsed?.ts) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function persistCache(entry: { data: TNMetrics; ts: number }) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(entry));
+  } catch {
+    // localStorage lleno o bloqueado — ignorar
+  }
+}
 
 export function clearTNCache() {
   metricsCache = null;
+  try { localStorage.removeItem(CACHE_KEY); } catch { /* ignore */ }
+}
+
+/**
+ * Devuelve datos persistidos de localStorage aunque estén viejos.
+ * Útil para mostrar datos instantáneamente al cargar la página.
+ */
+export function getPersistedMetrics(): TNMetrics | null {
+  if (metricsCache) return metricsCache.data;
+  const persisted = loadPersistedCache();
+  return persisted?.data ?? null;
 }
 
 // ── Fetch helpers ─────────────────────────────────────────────────────────────
@@ -287,8 +321,17 @@ export async function fetchTNMetrics(
   onProgress?: (loaded: number) => void,
   forceRefresh = false,
 ): Promise<TNMetrics> {
+  // Usar cache en memoria si está fresco
   if (!forceRefresh && metricsCache && Date.now() - metricsCache.ts < CACHE_TTL) {
     return metricsCache.data;
+  }
+  // Usar localStorage si está fresco (sobrevive al refresh)
+  if (!forceRefresh && !metricsCache) {
+    const persisted = loadPersistedCache();
+    if (persisted && Date.now() - persisted.ts < CACHE_TTL) {
+      metricsCache = persisted;
+      return persisted.data;
+    }
   }
 
   const allOrders = await fetchOrdersAll(storeId, token, onProgress);
@@ -439,5 +482,6 @@ export async function fetchTNMetrics(
   };
 
   metricsCache = { data: metrics, ts: Date.now() };
+  persistCache(metricsCache);
   return metrics;
 }

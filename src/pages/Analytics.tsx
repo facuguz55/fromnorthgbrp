@@ -10,6 +10,7 @@ import {
 import { getSettings } from '../services/dataService';
 import {
   fetchTNMetrics,
+  getPersistedMetrics,
   paymentStatusLabel,
   paymentStatusClass,
 } from '../services/tiendanubeService';
@@ -112,23 +113,27 @@ function OrdenRow({ o, i }: { o: TNOrder; i: number }) {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Analytics() {
-  const [loading, setLoading]           = useState(true);
+  const persisted = getPersistedMetrics();
+  const [loading, setLoading]           = useState(!persisted);
+  const [syncing, setSyncing]           = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
-  const [metrics, setMetrics]           = useState<TNMetrics | null>(null);
+  const [metrics, setMetrics]           = useState<TNMetrics | null>(persisted);
 
   const fetchData = async () => {
-    setLoading(true);
+    const hasCached = !!getPersistedMetrics();
+    if (hasCached) setSyncing(true); else setLoading(true);
     try {
       const settings = getSettings();
       const storeId  = settings?.tiendanubeStoreId?.trim() ?? '';
       const token    = settings?.tiendanubeToken?.trim()    ?? '';
-      if (!storeId || !token) return;
+      if (!storeId || !token) { setLoading(false); setSyncing(false); return; }
       const data = await fetchTNMetrics(storeId, token);
       setMetrics(data);
     } catch (err) {
       console.error('Error fetching analytics data:', err);
     } finally {
       setLoading(false);
+      setSyncing(false);
       setLastRefreshed(new Date());
     }
   };
@@ -169,9 +174,9 @@ export default function Analytics() {
             Últimos 90 días · Actualizado: {lastRefreshed.toLocaleTimeString('es-AR')}
           </span>
         </div>
-        <button className="btn-secondary refresh-btn" onClick={fetchData} disabled={loading}>
-          <RefreshCw size={15} className={loading ? 'spinning' : ''} />
-          {loading ? 'Actualizando...' : 'Actualizar'}
+        <button className="btn-secondary refresh-btn" onClick={fetchData} disabled={loading || syncing}>
+          <RefreshCw size={15} className={(loading || syncing) ? 'spinning' : ''} />
+          {loading || syncing ? 'Actualizando...' : 'Actualizar'}
         </button>
       </header>
 

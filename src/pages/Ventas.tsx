@@ -11,6 +11,7 @@ import MetricCard from '../components/MetricCard';
 import { getSettings } from '../services/dataService';
 import {
   fetchTNMetrics,
+  getPersistedMetrics,
   paymentStatusLabel,
   paymentStatusClass,
 } from '../services/tiendanubeService';
@@ -93,20 +94,23 @@ function OrdenRow({ o, i }: { o: TNOrder; i: number }) {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function Ventas() {
-  const [metrics, setMetrics]           = useState<TNMetrics | null>(null);
-  const [loading, setLoading]           = useState(false);
-  const [loadedCount, setLoadedCount]   = useState(0);
-  const [error, setError]               = useState<string | null>(null);
-  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
-
   const settings = getSettings();
   const storeId  = settings?.tiendanubeStoreId?.trim() ?? '';
   const token    = settings?.tiendanubeToken?.trim()    ?? '';
   const isConfigured = storeId && token;
 
+  const persisted = getPersistedMetrics();
+  const [metrics, setMetrics]           = useState<TNMetrics | null>(persisted);
+  const [loading, setLoading]           = useState(!persisted && !!isConfigured);
+  const [syncing, setSyncing]           = useState(false);
+  const [loadedCount, setLoadedCount]   = useState(0);
+  const [error, setError]               = useState<string | null>(null);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(persisted ? new Date() : null);
+
   const fetchData = async () => {
     if (!isConfigured) return;
-    setLoading(true);
+    const hasCached = !!getPersistedMetrics();
+    if (hasCached) setSyncing(true); else setLoading(true);
     setError(null);
     setLoadedCount(0);
 
@@ -121,6 +125,7 @@ export default function Ventas() {
       else setError(`Error conectando con TiendaNube: ${msg}`);
     } finally {
       setLoading(false);
+      setSyncing(false);
     }
   };
 
@@ -201,9 +206,9 @@ export default function Ventas() {
             {lastRefreshed && ` · Actualizado: ${lastRefreshed.toLocaleTimeString('es-AR')}`}
           </span>
         </div>
-        <button className="btn-secondary refresh-btn" onClick={fetchData} disabled={loading}>
-          <RefreshCw size={15} className={loading ? 'spinning' : ''} />
-          {loading ? `Cargando ${fmtNum(loadedCount)}...` : 'Actualizar'}
+        <button className="btn-secondary refresh-btn" onClick={fetchData} disabled={loading || syncing}>
+          <RefreshCw size={15} className={(loading || syncing) ? 'spinning' : ''} />
+          {loading ? `Cargando ${fmtNum(loadedCount)}...` : syncing ? 'Actualizando...' : 'Actualizar'}
         </button>
       </header>
 

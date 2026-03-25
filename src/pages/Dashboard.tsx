@@ -6,7 +6,7 @@ import {
   ShoppingBag, Trophy, ShoppingCart, Store, TrendingUp, Package,
 } from 'lucide-react';
 import { getSettings } from '../services/dataService';
-import { fetchTNMetrics, clearTNCache } from '../services/tiendanubeService';
+import { fetchTNMetrics, clearTNCache, getPersistedMetrics } from '../services/tiendanubeService';
 import type { TNMetrics } from '../services/tiendanubeService';
 import './Dashboard.css';
 
@@ -41,9 +41,11 @@ function getResetLabels() {
 }
 
 export default function Dashboard() {
-  const [loading, setLoading]   = useState(true);
+  const persisted = getPersistedMetrics();
+  const [loading, setLoading]   = useState(!persisted);
+  const [syncing, setSyncing]   = useState(false);
   const [loaded, setLoaded]     = useState(0);
-  const [metrics, setMetrics]   = useState<TNMetrics | null>(null);
+  const [metrics, setMetrics]   = useState<TNMetrics | null>(persisted);
   const [error, setError]       = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
   const [resets, setResets]     = useState(getResetLabels);
@@ -54,14 +56,15 @@ export default function Dashboard() {
   }, []);
 
   const fetchData = async (force = false) => {
-    setLoading(true);
+    const hasCached = !!getPersistedMetrics() && !force;
+    if (hasCached) setSyncing(true); else setLoading(true);
     setError(false);
     setLoaded(0);
     try {
       const settings = getSettings();
       const storeId  = settings?.tiendanubeStoreId?.trim() ?? '';
       const token    = settings?.tiendanubeToken?.trim()    ?? '';
-      if (!storeId || !token) { setLoading(false); return; }
+      if (!storeId || !token) { setLoading(false); setSyncing(false); return; }
       if (force) clearTNCache();
       const data = await fetchTNMetrics(storeId, token, n => setLoaded(n));
       setMetrics(data);
@@ -69,6 +72,7 @@ export default function Dashboard() {
       setError(true);
     } finally {
       setLoading(false);
+      setSyncing(false);
       setLastRefreshed(new Date());
     }
   };
@@ -87,12 +91,13 @@ export default function Dashboard() {
           <h1>FromNorth Analytics</h1>
           <div className="dashboard-meta">
             <span className="text-muted">Actualizado: {lastRefreshed.toLocaleTimeString('es-AR')}</span>
-            {metrics && <span className="status-dot">TiendaNube conectado</span>}
+            {metrics && !syncing && <span className="status-dot">TiendaNube conectado</span>}
+            {syncing && <span className="status-dot syncing"><RefreshCw size={11} className="spinning" /> Actualizando...</span>}
             {!isConfigured && <span className="status-dot paused">Configurá TiendaNube en Ajustes</span>}
           </div>
         </div>
-        <button className="btn-secondary refresh-btn" onClick={() => fetchData(true)} disabled={loading}>
-          <RefreshCw size={15} className={loading ? 'spinning' : ''} />
+        <button className="btn-secondary refresh-btn" onClick={() => fetchData(true)} disabled={loading || syncing}>
+          <RefreshCw size={15} className={(loading || syncing) ? 'spinning' : ''} />
           {loading ? (loaded > 0 ? `${fmtInt(loaded)} órdenes...` : 'Cargando...') : 'Actualizar'}
         </button>
       </header>
