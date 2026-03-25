@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, Search } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Search, DollarSign } from 'lucide-react';
 import { getSettings, fetchSheetByGid } from '../services/dataService';
 import './SheetViewer.css';
+
+const fmtARS = (n: number) =>
+  new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n);
 
 interface SheetViewerState {
   gid: string;
@@ -51,6 +54,16 @@ export default function SheetViewer() {
     Object.values(row).some(v => v.toLowerCase().includes(search.toLowerCase()))
   );
 
+  // Detectar columna "total" y sumar sus valores
+  const totalHeader = headers.find(h => h.toLowerCase().includes('total'));
+  const totalSum = totalHeader
+    ? rows.reduce((acc, row) => {
+        const raw = (row[totalHeader] ?? '').replace(/[^0-9,.-]/g, '').replace(',', '.');
+        const n = parseFloat(raw);
+        return acc + (isNaN(n) ? 0 : n);
+      }, 0)
+    : null;
+
   return (
     <div className="sv-page fade-in">
 
@@ -87,6 +100,12 @@ export default function SheetViewer() {
           <span className="sv-count glass-panel">
             {search ? `${filtered.length} de ${rows.length}` : rows.length} registros
           </span>
+          {totalSum !== null && totalSum > 0 && (
+            <span className="sv-total glass-panel">
+              <DollarSign size={13} />
+              Total: <strong>{fmtARS(totalSum)}</strong>
+            </span>
+          )}
           <div className="sv-search-wrapper">
             <Search size={14} className="sv-search-icon" />
             <input
