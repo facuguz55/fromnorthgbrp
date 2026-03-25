@@ -371,7 +371,7 @@ export default function Mails() {
             </div>
             <button
               className="btn-secondary mails-refresh-btn"
-              onClick={fetchMails}
+              onClick={() => fetchMails(false)}
               disabled={loading}
               title="Actualizar"
             >
@@ -430,7 +430,7 @@ export default function Mails() {
             <div className="list-error">
               <AlertCircle size={18} />
               <span>Error al cargar mails</span>
-              <button className="btn-secondary" onClick={fetchMails} style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem' }}>
+              <button className="btn-secondary" onClick={() => fetchMails(false)} style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem' }}>
                 Reintentar
               </button>
             </div>
