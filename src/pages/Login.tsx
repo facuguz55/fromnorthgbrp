@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { PieChart, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import './Auth.css';
@@ -7,17 +7,17 @@ import './Auth.css';
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [form, setForm]               = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [error, setError]             = useState('');
+  const [loading, setLoading]         = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    const ok = await login(form.email, form.password);
-    if (ok) {
+    const err = await login(form.email, form.password);
+    if (!err) {
       navigate('/dashboard');
     } else {
       setError('Email o contraseña incorrectos.');
@@ -33,8 +33,8 @@ export default function Login() {
           <span>Nova SaaS</span>
         </div>
 
-        <h1>Bienvenido de vuelta</h1>
-        <p className="auth-subtitle">Ingresa tus credenciales para continuar.</p>
+        <h1>Bienvenido</h1>
+        <p className="auth-subtitle">Ingresá tus credenciales para continuar.</p>
 
         {error && <div className="auth-error">{error}</div>}
 
@@ -51,6 +51,7 @@ export default function Login() {
                 placeholder="tu@email.com"
                 required
                 autoComplete="email"
+                autoFocus
               />
             </div>
           </div>
@@ -83,11 +84,6 @@ export default function Login() {
             {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
           </button>
         </form>
-
-        <p className="auth-footer">
-          ¿No tienes cuenta?{' '}
-          <Link to="/register">Crear cuenta</Link>
-        </p>
       </div>
     </div>
   );

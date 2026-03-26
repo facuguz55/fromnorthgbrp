@@ -13,11 +13,37 @@ export interface DashboardSettings {
   sidebarCollapsed: boolean;
 }
 
-export function getSettings(): DashboardSettings | null {
+// Valores pre-configurados que se aplican si el usuario no los sobrescribió
+const PRECONFIGURED: Partial<DashboardSettings> = {
+  googleSheetsUrl: 'https://docs.google.com/spreadsheets/d/1AFc5ofUSl_DwaYPC2idAY2uHv1aPWx8QhcgiPeJyeP0/edit?gid=1642608634#gid=1642608634',
+};
+
+const DEFAULT_SETTINGS: DashboardSettings = {
+  tiendanubeToken:   '',
+  tiendanubeStoreId: '',
+  googleSheetsUrl:   PRECONFIGURED.googleSheetsUrl!,
+  metaAccessToken:   '',
+  metaAdAccountId:   '',
+  displayName:       '',
+  accentColor:       '#06b6d4',
+  compactMode:       false,
+  currencySymbol:    '$',
+  language:          'es',
+  dateFormat:        'DD/MM/YYYY',
+  sidebarCollapsed:  false,
+};
+
+export function getSettings(): DashboardSettings {
   const saved = localStorage.getItem('nova_dashboard_settings');
-  if (!saved) return null;
-  try { return JSON.parse(saved); } catch { return null; }
+  if (!saved) return { ...DEFAULT_SETTINGS };
+  try {
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+  } catch {
+    return { ...DEFAULT_SETTINGS };
+  }
 }
+
+export { DEFAULT_SETTINGS };
 
 /** CSV parser que maneja campos entre comillas con comas internas */
 export function parseCsvLine(line: string): string[] {

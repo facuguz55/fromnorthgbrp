@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Save, User, Palette, Database, Globe } from 'lucide-react';
+import { Save, User, Palette, Database, Globe, LogOut } from 'lucide-react';
 import type { DashboardSettings } from '../services/dataService';
+import { DEFAULT_SETTINGS } from '../services/dataService';
+import { useAuth } from '../context/AuthContext';
 import './Settings.css';
 
 const ACCENT_COLORS = [
@@ -14,22 +16,8 @@ const ACCENT_COLORS = [
   { label: 'Amarillo',value: '#eab308' },
 ];
 
-const DEFAULT_SETTINGS: DashboardSettings = {
-  tiendanubeToken: '',
-  tiendanubeStoreId: '',
-  googleSheetsUrl: '',
-  metaAccessToken: '',
-  metaAdAccountId: '',
-  displayName: '',
-  accentColor: '#06b6d4',
-  compactMode: false,
-  currencySymbol: '$',
-  language: 'es',
-  dateFormat: 'DD/MM/YYYY',
-  sidebarCollapsed: false,
-};
-
 export default function Settings() {
+  const { user, logout } = useAuth();
   const [formData, setFormData] = useState<DashboardSettings>(DEFAULT_SETTINGS);
   const [isSaved, setIsSaved] = useState(false);
 
@@ -81,9 +69,9 @@ export default function Settings() {
       <div className="settings-content">
         <form className="settings-form" onSubmit={handleSubmit}>
 
-          {/* ── Perfil ─────────────────────────── */}
+          {/* ── Cuenta ─────────────────────────── */}
           <section className="settings-section glass-panel">
-            <h2 className="section-title"><User size={18} /> Perfil</h2>
+            <h2 className="section-title"><User size={18} /> Cuenta</h2>
             <div className="section-body">
               <div className="form-row">
                 <div className="form-group">
@@ -97,6 +85,16 @@ export default function Settings() {
                     placeholder="Tu nombre"
                   />
                 </div>
+                <div className="form-group">
+                  <label>Email de sesión</label>
+                  <input type="text" value={user?.email ?? ''} readOnly style={{ opacity: 0.6, cursor: 'default' }} />
+                </div>
+              </div>
+              <div style={{ marginTop: '0.5rem' }}>
+                <button type="button" className="btn-secondary" onClick={logout} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <LogOut size={15} />
+                  Cerrar sesión
+                </button>
               </div>
             </div>
           </section>
