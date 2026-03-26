@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Store, RefreshCw, Search, Pencil, X,
   CheckCircle2, AlertCircle,
+  Users, Tag, Plus, Percent, DollarSign, Truck, Phone, Mail, Calendar, ShoppingBag,
 } from 'lucide-react';
 import { getSettings } from '../services/dataService';
 import {
@@ -9,12 +10,16 @@ import {
   fetchTNCategories,
   updateTNCategory,
   updateTNProductVariant,
+  fetchTNCustomers,
+  fetchTNCustomerOrders,
 } from '../services/tiendanubeService';
-import type { StockItemWithIds, TNCategory } from '../services/tiendanubeService';
+import type { StockItemWithIds, TNCategory, TNCustomer, TNOrder } from '../services/tiendanubeService';
 import './Tienda.css';
 import './TiendanubeVentas.css';
+import './Clientes.css';
+import './Cupones.css';
 
-type Tab = 'productos' | 'categorias';
+type Tab = 'productos' | 'categorias' | 'clientes' | 'cupones';
 
 interface Toast {
   type: 'ok' | 'err';
@@ -458,10 +463,704 @@ function CategoriasTab() {
   );
 }
 
+// ── Clientes ───────────────────────────────────────────────────────────────────
+
+const fmtARS = (n: number) =>
+  n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+type SortKey = 'total_spent' | 'orders_count' | 'created_at';
+
+const MIN_ORDERS_OPTIONS = [
+  { value: 0, label: 'Todos' },
+  { value: 1, label: '1+' },
+  { value: 2, label: '2+' },
+  { value: 5, label: '5+' },
+  { value: 10, label: '10+' },
+] as const;
+
+function ClientesTab() {
+  const [customers, setCustomers] = useState<TNCustomer[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [search, setSearch]       = useState('');
+  const [minOrders, setMinOrders] = useState<number>(0);
+  const [sortKey, setSortKey]     = useState<SortKey>('total_spent');
+  const [selectedCustomer, setSelectedCustomer] = useState<TNCustomer | null>(null);
+  const [customerOrders, setCustomerOrders]     = useState<TNOrder[]>([]);
+  const [loadingOrders, setLoadingOrders]       = useState(false);
+
+  const loadData = async (force = false) => {
+    setError(null);
+    if (!force) setLoading(true);
+    try {
+      const settings = getSettings();
+      const storeId  = settings?.tiendanubeStoreId?.trim() ?? '';
+      const token    = settings?.tiendanubeToken?.trim()    ?? '';
+      if (!storeId || !token) {
+        setError('Configurá tu Store ID y Access Token en Configuración → TiendaNube API.');
+        setLoading(false);
+        return;
+      }
+      const data = await fetchTNCustomers(storeId, token);
+      setCustomers(data);
+      setLastUpdated(new Date());
+    } catch (err) {
+      setError('No se pudo cargar la lista de clientes.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openCustomer = async (c: TNCustomer) => {
+    setSelectedCustomer(c);
+    setCustomerOrders([]);
+    setLoadingOrders(true);
+    try {
+      const settings = getSettings();
+      const storeId  = settings?.tiendanubeStoreId?.trim() ?? '';
+      const token    = settings?.tiendanubeToken?.trim()    ?? '';
+      const orders = await fetchTNCustomerOrders(storeId, token, c.id);
+      setCustomerOrders(orders);
+    } catch (err) {
+      console.error('Error cargando órdenes del cliente:', err);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  useEffect(() => { loadData(); }, []);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    let base = minOrders === 0 ? customers : customers.filter(c => c.orders_count >= minOrders);
+    if (q) base = base.filter(c => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q));
+    return [...base].sort((a, b) => {
+      if (sortKey === 'total_spent')  return parseFloat(b.total_spent) - parseFloat(a.total_spent);
+      if (sortKey === 'orders_count') return b.orders_count - a.orders_count;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [customers, search, minOrders, sortKey]);
+
+  const totalGastado = customers.reduce((s, c) => s + parseFloat(c.total_spent), 0);
+  const promedio     = customers.length > 0 ? totalGastado / customers.length : 0;
+  const isFiltered   = filtered.length !== customers.length;
+
+  return (
+    <>
+      {/* Stats strip */}
+      {!loading && customers.length > 0 && (
+        <div className="clientes-stats">
+          <div className="clientes-stat glass-panel">
+            <span className="clientes-stat-value">{customers.length.toLocaleString('es-AR')}</span>
+            <span className="clientes-stat-label">Total clientes</span>
+          </div>
+          <div className="clientes-stat glass-panel">
+            <span className="clientes-stat-value">{fmtARS(totalGastado)}</span>
+            <span className="clientes-stat-label">Total gastado</span>
+          </div>
+          <div className="clientes-stat glass-panel">
+            <span className="clientes-stat-value">{fmtARS(promedio)}</span>
+            <span className="clientes-stat-label">Promedio por cliente</span>
+          </div>
+        </div>
+      )}
+
+      {/* Controles */}
+      {!loading && !error && customers.length > 0 && (
+        <div className="clientes-filters glass-panel">
+          <div className="clientes-search-box">
+            <Search size={14} className="clientes-search-icon" />
+            <input
+              type="text"
+              placeholder="Buscar por nombre o email..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="clientes-search-input"
+            />
+          </div>
+          <div className="clientes-filter-group">
+            <span className="clientes-filter-label">Órdenes:</span>
+            <div className="clientes-filter-btns">
+              {MIN_ORDERS_OPTIONS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  className={`clientes-filter-btn ${minOrders === value ? 'active' : ''}`}
+                  onClick={() => setMinOrders(value)}
+                >{label}</button>
+              ))}
+            </div>
+          </div>
+          <div className="clientes-filter-group">
+            <span className="clientes-filter-label">Ordenar por:</span>
+            <div className="clientes-filter-btns">
+              {([
+                { key: 'total_spent',  label: 'Mayor gasto' },
+                { key: 'orders_count', label: 'Más órdenes' },
+                { key: 'created_at',   label: 'Más reciente' },
+              ] as { key: SortKey; label: string }[]).map(({ key, label }) => (
+                <button
+                  key={key}
+                  className={`clientes-filter-btn ${sortKey === key ? 'active' : ''}`}
+                  onClick={() => setSortKey(key)}
+                >{label}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto' }}>
+            {isFiltered && (
+              <span className="clientes-count-label">{filtered.length} de {customers.length}</span>
+            )}
+            {lastUpdated && (
+              <span className="clientes-count-label">· {lastUpdated.toLocaleTimeString('es-AR')}</span>
+            )}
+            <button className="btn-secondary tienda-refresh-btn" onClick={() => loadData(true)} disabled={loading}>
+              <RefreshCw size={14} className={loading ? 'spinning' : ''} />
+              Actualizar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Estados */}
+      {loading ? (
+        <div className="tienda-state glass-panel">
+          <RefreshCw size={24} className="spinning" />
+          <span>Cargando clientes...</span>
+        </div>
+      ) : error ? (
+        <div className="tienda-state tienda-state-error glass-panel">
+          <AlertCircle size={32} className="tienda-state-icon" />
+          <p>{error}</p>
+        </div>
+      ) : customers.length === 0 ? (
+        <div className="tienda-state glass-panel">
+          <Users size={32} className="tienda-state-icon" />
+          <p>No se encontraron clientes en tu tienda.</p>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="tienda-state glass-panel">
+          <Users size={32} className="tienda-state-icon" />
+          <p>Ningún cliente coincide con los filtros.</p>
+        </div>
+      ) : (
+        <div className="tn-table-wrapper glass-panel">
+          <table className="tn-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Nombre</th>
+                <th>Email</th>
+                <th>Órdenes</th>
+                <th>Total gastado</th>
+                <th>Registrado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((c, i) => {
+                const fecha = new Date(c.created_at).toLocaleDateString('es-AR', {
+                  day: '2-digit', month: '2-digit', year: 'numeric',
+                  timeZone: 'America/Argentina/Buenos_Aires',
+                });
+                return (
+                  <tr key={c.id} className="clientes-row-clickable" onClick={() => openCustomer(c)}>
+                    <td className="tn-td-num">{i + 1}</td>
+                    <td className="tn-td-cliente"><span className="tn-client-name">{c.name || '—'}</span></td>
+                    <td className="tn-td-cliente"><span className="tn-client-email">{c.email || '—'}</span></td>
+                    <td className="clientes-td-orders">{c.orders_count}</td>
+                    <td className="tn-td-total">{fmtARS(parseFloat(c.total_spent))}</td>
+                    <td className="tn-td-fecha">{fecha}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Panel de detalle */}
+      {selectedCustomer && (
+        <div className="cliente-detail-overlay" onClick={() => setSelectedCustomer(null)}>
+          <div className="cliente-detail-panel glass-panel" onClick={e => e.stopPropagation()}>
+            <div className="cliente-detail-header">
+              <div className="cliente-detail-title">
+                <Users size={18} className="section-icon" />
+                <h2>{selectedCustomer.name || 'Cliente sin nombre'}</h2>
+              </div>
+              <button className="rec-close-btn" onClick={() => setSelectedCustomer(null)}><X size={18} /></button>
+            </div>
+            <div className="cliente-detail-info">
+              {selectedCustomer.email && (
+                <div className="cliente-detail-info-row">
+                  <Mail size={13} className="cliente-detail-info-icon" />
+                  <span>{selectedCustomer.email}</span>
+                </div>
+              )}
+              {selectedCustomer.phone && (
+                <div className="cliente-detail-info-row">
+                  <Phone size={13} className="cliente-detail-info-icon" />
+                  <span>{selectedCustomer.phone}</span>
+                </div>
+              )}
+              <div className="cliente-detail-info-row">
+                <Calendar size={13} className="cliente-detail-info-icon" />
+                <span>Registrado el {new Date(selectedCustomer.created_at).toLocaleDateString('es-AR', {
+                  day: '2-digit', month: '2-digit', year: 'numeric',
+                  timeZone: 'America/Argentina/Buenos_Aires',
+                })}</span>
+              </div>
+            </div>
+            <div className="cliente-detail-stats">
+              <div className="cliente-detail-stat">
+                <span className="cliente-detail-stat-value">{selectedCustomer.orders_count}</span>
+                <span className="cliente-detail-stat-label">Órdenes</span>
+              </div>
+              <div className="cliente-detail-stat">
+                <span className="cliente-detail-stat-value">{fmtARS(parseFloat(selectedCustomer.total_spent))}</span>
+                <span className="cliente-detail-stat-label">Total gastado</span>
+              </div>
+            </div>
+            <div className="cliente-detail-orders-title">
+              <ShoppingBag size={14} className="section-icon" />
+              <span>Compras</span>
+            </div>
+            {loadingOrders ? (
+              <div className="cliente-detail-loading">
+                <RefreshCw size={18} className="spinning" />
+                <span>Cargando compras...</span>
+              </div>
+            ) : customerOrders.length === 0 ? (
+              <p className="cliente-detail-empty">No se encontraron compras registradas.</p>
+            ) : (
+              <div className="cliente-orders-list">
+                {customerOrders.map(o => (
+                  <div key={o.id} className="cliente-order-row">
+                    <div className="cliente-order-meta">
+                      <span className="cliente-order-num">#{o.number}</span>
+                      <span className={`tn-status-badge status-${o.payment_status}`}>
+                        {o.payment_status === 'paid' ? 'Pagado' :
+                         o.payment_status === 'pending' ? 'Pendiente' :
+                         o.payment_status === 'refunded' ? 'Reembolsado' :
+                         o.payment_status === 'voided' ? 'Anulado' :
+                         o.payment_status}
+                      </span>
+                      <span className="cliente-order-date">
+                        {new Date(o.created_at).toLocaleDateString('es-AR', {
+                          day: '2-digit', month: '2-digit', year: 'numeric',
+                          timeZone: 'America/Argentina/Buenos_Aires',
+                        })}
+                      </span>
+                    </div>
+                    <span className="cliente-order-total">{fmtARS(parseFloat(o.total))}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ── Cupones ────────────────────────────────────────────────────────────────────
+
+const WEBHOOK_GET    = 'https://devwebhookn8n.santafeia.shop/webhook/cupones-web-f';
+const WEBHOOK_CREATE = 'https://devwebhookn8n.santafeia.shop/webhook/crear-cupon-web-f';
+const TN_COUPONS_BASE = 'https://api.tiendanube.com/v1';
+
+type TipoDescuento = 'percentage' | 'absolute' | 'shipping';
+
+interface Cupon {
+  id: number | string;
+  code: string;
+  type: TipoDescuento;
+  value: string | number;
+  valid: boolean;
+  used: number;
+  max_uses: number | null;
+  min_price: string | number | null;
+  end_date: string | null;
+  is_deleted: boolean;
+}
+
+interface CuponFormState {
+  code: string;
+  type: TipoDescuento;
+  value: string;
+  min_price: string;
+  max_uses: string;
+  valid_until: string;
+}
+
+const CUPON_FORM_EMPTY: CuponFormState = {
+  code: '', type: 'percentage', value: '', min_price: '', max_uses: '', valid_until: '',
+};
+
+function formatTipo(type: TipoDescuento, value: string | number): string {
+  const v = parseFloat(String(value));
+  if (type === 'percentage') return `${v}% de descuento`;
+  if (type === 'absolute')   return `$${v.toLocaleString('es-AR')} de descuento`;
+  return 'Envío gratis';
+}
+
+function formatFecha(date: string | null): string {
+  if (!date) return '—';
+  return new Date(date + 'T00:00:00').toLocaleDateString('es-AR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  });
+}
+
+function normalizeCupones(raw: unknown): Cupon[] {
+  if (Array.isArray(raw)) {
+    if (raw.length > 0 && raw[0] !== null && typeof raw[0] === 'object' && 'json' in (raw[0] as object)) {
+      return normalizeCupones((raw as { json: unknown }[])[0].json);
+    }
+    return raw as Cupon[];
+  }
+  if (raw !== null && typeof raw === 'object') {
+    const obj = raw as Record<string, unknown>;
+    for (const key of ['cupones', 'coupons', 'data', 'result', 'items']) {
+      if (Array.isArray(obj[key])) return obj[key] as Cupon[];
+    }
+  }
+  return [];
+}
+
+function TipoIcon({ type }: { type: TipoDescuento }) {
+  if (type === 'percentage') return <Percent size={13} />;
+  if (type === 'absolute')   return <DollarSign size={13} />;
+  return <Truck size={13} />;
+}
+
+function EstadoBadge({ valid, is_deleted }: { valid: boolean; is_deleted: boolean }) {
+  const on = valid && !is_deleted;
+  return (
+    <span className={`cupon-estado ${on ? 'activo' : 'inactivo'}`}>
+      {is_deleted ? 'Eliminado' : on ? 'Activo' : 'Inactivo'}
+    </span>
+  );
+}
+
+function CuponesTab() {
+  const [cupones,      setCupones]      = useState<Cupon[]>([]);
+  const [loading,      setLoading]      = useState(false);
+  const [error,        setError]        = useState<string | null>(null);
+  const [showForm,     setShowForm]     = useState(false);
+  const [form,         setForm]         = useState<CuponFormState>(CUPON_FORM_EMPTY);
+  const [creating,     setCreating]     = useState(false);
+  const [toastC,       setToastC]       = useState<{ type: 'ok' | 'err'; msg: string } | null>(null);
+  const [editingCupon, setEditingCupon] = useState<Cupon | null>(null);
+  const [editForm,     setEditForm]     = useState<CuponFormState>(CUPON_FORM_EMPTY);
+  const [updating,     setUpdating]     = useState(false);
+
+  const showToast = (type: 'ok' | 'err', msg: string) => {
+    setToastC({ type, msg });
+    setTimeout(() => setToastC(null), 4000);
+  };
+
+  const fetchCupones = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res  = await fetch(WEBHOOK_GET, { method: 'POST', headers: { Accept: 'application/json' } });
+      const text = await res.text();
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setCupones(normalizeCupones(JSON.parse(text)));
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchCupones(); }, [fetchCupones]);
+
+  const handleField     = (k: keyof CuponFormState, v: string) => setForm(p => ({ ...p, [k]: v }));
+  const handleEditField = (k: keyof CuponFormState, v: string) => setEditForm(p => ({ ...p, [k]: v }));
+
+  const handleStartEdit = (c: Cupon) => {
+    setEditingCupon(c);
+    setEditForm({
+      code:        c.code,
+      type:        c.type,
+      value:       c.type !== 'shipping' ? String(parseFloat(String(c.value)) || '') : '0',
+      min_price:   c.min_price   != null ? String(parseFloat(String(c.min_price))) : '',
+      max_uses:    c.max_uses    != null ? String(c.max_uses) : '',
+      valid_until: c.end_date    ?? '',
+    });
+    setShowForm(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingCupon) return;
+    const settings = getSettings();
+    const storeId  = settings?.tiendanubeStoreId?.trim() ?? '';
+    const token    = settings?.tiendanubeToken?.trim()    ?? '';
+    if (!storeId || !token) { showToast('err', 'Configurá el Store ID y Token en Ajustes.'); return; }
+    setUpdating(true);
+    const body: Record<string, unknown> = {
+      type:  editForm.type,
+      value: editForm.type !== 'shipping' ? parseFloat(editForm.value) || 0 : 0,
+    };
+    if (editForm.min_price)   body.min_price   = parseFloat(editForm.min_price);
+    if (editForm.max_uses)    body.max_uses    = parseInt(editForm.max_uses);
+    if (editForm.valid_until) body.valid_until = editForm.valid_until;
+    const tnH: Record<string, string> = {
+      Authentication: `bearer ${token}`,
+      'User-Agent':   'NovaDashboard (contact@fromnorthgb.com)',
+      'Content-Type': 'application/json',
+    };
+    try {
+      let res: Response;
+      try {
+        res = await fetch(`${TN_COUPONS_BASE}/${storeId}/coupons/${editingCupon.id}`, {
+          method: 'PUT', headers: tnH, body: JSON.stringify(body),
+        });
+      } catch {
+        const qs = new URLSearchParams({ storeId, token, path: `coupons/${editingCupon.id}` });
+        res = await fetch(`/api/tiendanube?${qs}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        });
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast('ok', `Cupón "${editingCupon.code}" actualizado.`);
+      setEditingCupon(null);
+      fetchCupones();
+    } catch (e) {
+      showToast('err', `No se pudo actualizar. ${e}`);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!form.code.trim() || !form.value.trim()) { showToast('err', 'El código y el valor son obligatorios.'); return; }
+    setCreating(true);
+    try {
+      const body: Record<string, unknown> = {
+        code:  form.code.trim().toUpperCase(),
+        type:  form.type,
+        value: parseFloat(form.value),
+      };
+      if (form.min_price)   body.min_price   = parseFloat(form.min_price);
+      if (form.max_uses)    body.max_uses    = parseInt(form.max_uses);
+      if (form.valid_until) body.valid_until = form.valid_until;
+      const res = await fetch(WEBHOOK_CREATE, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      showToast('ok', `Cupón "${body.code}" creado correctamente.`);
+      setForm(CUPON_FORM_EMPTY);
+      setShowForm(false);
+      fetchCupones();
+    } catch (e) {
+      showToast('err', `No se pudo crear el cupón. ${e}`);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const tipoOptions = [
+    { key: 'percentage' as TipoDescuento, label: '% Descuento', icon: <Percent size={13} /> },
+    { key: 'absolute'   as TipoDescuento, label: '$ Fijo',       icon: <DollarSign size={13} /> },
+    { key: 'shipping'   as TipoDescuento, label: 'Envío gratis', icon: <Truck size={13} /> },
+  ];
+
+  return (
+    <>
+      {/* Acciones */}
+      <div className="tienda-controls">
+        <button className="btn-secondary tienda-refresh-btn" onClick={fetchCupones} disabled={loading}>
+          <RefreshCw size={14} className={loading ? 'spinning' : ''} />
+          {loading ? 'Cargando...' : 'Actualizar'}
+        </button>
+        <button className="btn-primary cupones-btn-nuevo" onClick={() => { setShowForm(v => !v); setEditingCupon(null); }}>
+          {showForm ? <X size={15} /> : <Plus size={15} />}
+          {showForm ? 'Cancelar' : 'Nuevo cupón'}
+        </button>
+      </div>
+
+      {/* Form edición */}
+      {editingCupon && (
+        <div className="cupones-form glass-panel fade-in">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.1rem' }}>
+            <h2 className="cupones-form-title" style={{ margin: 0 }}>
+              Editar — <span style={{ color: 'var(--accent-primary)', fontFamily: 'monospace' }}>{editingCupon.code}</span>
+            </h2>
+            <button className="btn-secondary" onClick={() => setEditingCupon(null)} style={{ padding: '0.3rem 0.7rem', fontSize: '0.75rem' }}>
+              <X size={13} /> Cancelar
+            </button>
+          </div>
+          <div className="cupones-form-grid">
+            <div className="form-field">
+              <label className="form-label">Tipo *</label>
+              <div className="form-tipo-group">
+                {tipoOptions.map(t => (
+                  <button key={t.key} className={`tipo-btn ${editForm.type === t.key ? 'active' : ''}`}
+                    onClick={() => handleEditField('type', t.key)} type="button">
+                    {t.icon}{t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {editForm.type !== 'shipping' && (
+              <div className="form-field">
+                <label className="form-label">{editForm.type === 'percentage' ? 'Porcentaje (%)' : 'Monto ($)'} *</label>
+                <input className="form-input" type="number" min="0" value={editForm.value}
+                  onChange={e => handleEditField('value', e.target.value)} />
+              </div>
+            )}
+            <div className="form-field">
+              <label className="form-label">Compra mínima ($) <span className="form-label-opt">opcional</span></label>
+              <input className="form-input" type="number" min="0" placeholder="Ej: 5000" value={editForm.min_price}
+                onChange={e => handleEditField('min_price', e.target.value)} />
+            </div>
+            <div className="form-field">
+              <label className="form-label">Límite de usos <span className="form-label-opt">opcional</span></label>
+              <input className="form-input" type="number" min="1" placeholder="Vacío = ilimitado" value={editForm.max_uses}
+                onChange={e => handleEditField('max_uses', e.target.value)} />
+            </div>
+            <div className="form-field">
+              <label className="form-label">Vence el <span className="form-label-opt">opcional</span></label>
+              <input className="form-input" type="date" value={editForm.valid_until}
+                onChange={e => handleEditField('valid_until', e.target.value)} />
+            </div>
+          </div>
+          <div className="cupones-form-footer">
+            <button className="btn-primary" onClick={handleSaveEdit} disabled={updating}>
+              {updating ? <><RefreshCw size={14} className="spinning" /> Guardando...</> : <><Pencil size={14} /> Guardar cambios</>}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Form creación */}
+      {showForm && (
+        <div className="cupones-form glass-panel fade-in">
+          <h2 className="cupones-form-title">Nuevo cupón</h2>
+          <div className="cupones-form-grid">
+            <div className="form-field">
+              <label className="form-label">Código *</label>
+              <input className="form-input" placeholder="Ej: VERANO20" value={form.code}
+                onChange={e => handleField('code', e.target.value.toUpperCase())} maxLength={30} />
+            </div>
+            <div className="form-field">
+              <label className="form-label">Tipo *</label>
+              <div className="form-tipo-group">
+                {tipoOptions.map(t => (
+                  <button key={t.key} className={`tipo-btn ${form.type === t.key ? 'active' : ''}`}
+                    onClick={() => handleField('type', t.key)} type="button">
+                    {t.icon}{t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {form.type !== 'shipping' && (
+              <div className="form-field">
+                <label className="form-label">{form.type === 'percentage' ? 'Porcentaje (%)' : 'Monto ($)'} *</label>
+                <input className="form-input" type="number" min="0"
+                  placeholder={form.type === 'percentage' ? 'Ej: 20' : 'Ej: 500'}
+                  value={form.value} onChange={e => handleField('value', e.target.value)} />
+              </div>
+            )}
+            <div className="form-field">
+              <label className="form-label">Compra mínima ($) <span className="form-label-opt">opcional</span></label>
+              <input className="form-input" type="number" min="0" placeholder="Ej: 5000" value={form.min_price}
+                onChange={e => handleField('min_price', e.target.value)} />
+            </div>
+            <div className="form-field">
+              <label className="form-label">Límite de usos <span className="form-label-opt">opcional</span></label>
+              <input className="form-input" type="number" min="1" placeholder="Ej: 100 (vacío = ilimitado)" value={form.max_uses}
+                onChange={e => handleField('max_uses', e.target.value)} />
+            </div>
+            <div className="form-field">
+              <label className="form-label">Vence el <span className="form-label-opt">opcional</span></label>
+              <input className="form-input" type="date" value={form.valid_until}
+                onChange={e => handleField('valid_until', e.target.value)} />
+            </div>
+          </div>
+          <div className="cupones-form-footer">
+            <button className="btn-primary" onClick={handleCreate} disabled={creating}>
+              {creating ? <><RefreshCw size={14} className="spinning" /> Creando...</> : <><Plus size={14} /> Crear cupón</>}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Lista */}
+      <div className="cupones-lista glass-panel">
+        <div className="cupones-lista-header">
+          <span className="cupones-lista-title">Cupones existentes</span>
+          {!loading && <span className="cupones-lista-count">{cupones.length} total</span>}
+        </div>
+        {loading && <div className="cupones-loading"><RefreshCw size={18} className="spinning" /><span>Cargando cupones...</span></div>}
+        {!loading && error && (
+          <div className="cupones-error">
+            <AlertCircle size={16} />
+            <span>No se pudieron cargar los cupones — {error}</span>
+            <button className="btn-secondary" onClick={fetchCupones} style={{ fontSize: '0.75rem', padding: '0.3rem 0.7rem' }}>Reintentar</button>
+          </div>
+        )}
+        {!loading && !error && cupones.length === 0 && (
+          <div className="cupones-empty">
+            <Tag size={32} className="cupones-empty-icon" />
+            <p>No hay cupones todavía</p>
+            <p className="cupones-empty-sub">Creá el primero con el botón "Nuevo cupón"</p>
+          </div>
+        )}
+        {!loading && !error && cupones.length > 0 && (
+          <div className="cupones-table-wrap">
+            <table className="cupones-table">
+              <thead>
+                <tr>
+                  <th>Código</th><th>Tipo</th><th>Compra mín.</th><th>Usos</th><th>Vence</th><th>Estado</th><th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {cupones.map(c => (
+                  <tr key={c.id}>
+                    <td><span className="cupon-code">{c.code}</span></td>
+                    <td><span className="cupon-tipo"><TipoIcon type={c.type} />{formatTipo(c.type, c.value)}</span></td>
+                    <td className="cupon-secondary">{c.min_price ? `$${parseFloat(String(c.min_price)).toLocaleString('es-AR')}` : '—'}</td>
+                    <td className="cupon-secondary">{c.max_uses != null ? `${c.used} / ${c.max_uses}` : `${c.used} usos`}</td>
+                    <td className="cupon-secondary">{formatFecha(c.end_date)}</td>
+                    <td><EstadoBadge valid={c.valid} is_deleted={c.is_deleted} /></td>
+                    <td>
+                      <button className="cupon-edit-btn" onClick={() => handleStartEdit(c)} title="Editar cupón" disabled={c.is_deleted}>
+                        <Pencil size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {toastC && (
+        <div className={`cupon-toast ${toastC.type}`}>
+          {toastC.type === 'ok' ? <CheckCircle2 size={15} /> : <AlertCircle size={15} />}
+          {toastC.msg}
+        </div>
+      )}
+    </>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export default function Tienda() {
   const [tab, setTab] = useState<Tab>('productos');
+
+  const tabLabels: { key: Tab; label: string }[] = [
+    { key: 'productos',  label: 'Productos' },
+    { key: 'categorias', label: 'Categorías' },
+    { key: 'clientes',   label: 'Clientes' },
+    { key: 'cupones',    label: 'Cupones' },
+  ];
 
   return (
     <div className="tienda-page fade-in">
@@ -472,29 +1171,29 @@ export default function Tienda() {
           <Store size={22} className="tienda-title-icon" />
           <div>
             <h1 className="tienda-title">Gestión de tienda</h1>
-            <p className="tienda-subtitle">Editá precios, stock y categorías de tu tienda</p>
+            <p className="tienda-subtitle">Productos, categorías, clientes y cupones</p>
           </div>
         </div>
       </header>
 
       {/* ── Tabs ── */}
       <div className="tienda-tabs">
-        <button
-          className={`tienda-tab ${tab === 'productos' ? 'active' : ''}`}
-          onClick={() => setTab('productos')}
-        >
-          Productos
-        </button>
-        <button
-          className={`tienda-tab ${tab === 'categorias' ? 'active' : ''}`}
-          onClick={() => setTab('categorias')}
-        >
-          Categorías
-        </button>
+        {tabLabels.map(({ key, label }) => (
+          <button
+            key={key}
+            className={`tienda-tab ${tab === key ? 'active' : ''}`}
+            onClick={() => setTab(key)}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* ── Tab Content ── */}
-      {tab === 'productos' ? <ProductosTab /> : <CategoriasTab />}
+      {tab === 'productos'  && <ProductosTab />}
+      {tab === 'categorias' && <CategoriasTab />}
+      {tab === 'clientes'   && <ClientesTab />}
+      {tab === 'cupones'    && <CuponesTab />}
     </div>
   );
 }
