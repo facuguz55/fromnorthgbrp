@@ -525,10 +525,16 @@ export default function Ruleta() {
               subtitle="compras con cupón FN"
             />
             <MetricCard
-              title="Facturado con FN"
+              title="Facturado real"
               value={`$${conversiones.reduce((s, c) => s + c.total, 0).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
               icon={<TrendingUp size={20} />}
-              subtitle="total en ventas convertidas"
+              subtitle="lo que pagaron después del descuento"
+            />
+            <MetricCard
+              title="Valor entregado"
+              value={`$${conversiones.reduce((s, c) => s + c.discount, 0).toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+              icon={<Gift size={20} />}
+              subtitle="valor total de los premios canjeados"
             />
             <MetricCard
               title="Clientes únicos"
@@ -570,8 +576,10 @@ export default function Ruleta() {
                   <th>Cliente</th>
                   <th>Email</th>
                   <th>Cupón</th>
+                  <th>Productos</th>
                   <th>Orden</th>
                   <th>Total</th>
+                  <th>Descuento</th>
                   <th>Fecha</th>
                 </tr>
               </thead>
@@ -583,9 +591,15 @@ export default function Ruleta() {
                     <td className="ruleta-td-codigo">
                       <code className="ruleta-code">{c.couponCode}</code>
                     </td>
+                    <td style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', maxWidth: '200px' }}>
+                      {c.products.join(', ') || '—'}
+                    </td>
                     <td className="ruleta-td-id">#{c.orderNumber}</td>
                     <td style={{ fontWeight: 700, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
                       ${c.total.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td style={{ fontWeight: 700, color: '#10b981', fontVariantNumeric: 'tabular-nums' }}>
+                      -${c.discount.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     <td className="ruleta-td-fecha">
                       {new Date(c.createdAt).toLocaleDateString('es-AR', {

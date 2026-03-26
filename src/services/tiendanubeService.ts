@@ -433,6 +433,9 @@ export interface FNCouponConversion {
   orderNumber: number;
   couponCode: string;
   total: number;
+  subtotal: number;
+  discount: number;
+  products: string[];
   createdAt: string;
   customerName: string;
   customerEmail: string;
@@ -466,6 +469,9 @@ export async function fetchFNCouponOrders(
       orderNumber:   order.number,
       couponCode:    fnCoupon.code,
       total:         parseFloat(order.total),
+      subtotal:      parseFloat(order.subtotal),
+      discount:      parseFloat(order.discount),
+      products:      order.products.map(p => p.name),
       createdAt:     order.created_at,
       customerName:  order.customer?.name  ?? '—',
       customerEmail: order.customer?.email ?? '—',
