@@ -256,6 +256,7 @@ export interface MetaSummary {
   totalClicks: number;
   avgCtr: number;
   totalReach: number;
+  avgFrequency: number;
   totalPurchases: number;
   totalRevenue: number;
   overallRoas: number;
@@ -269,8 +270,9 @@ export function computeMetaSummary(insights: MetaInsight[]): MetaSummary {
   const totalReach       = insights.reduce((s, i) => s + i.reach, 0);
   const totalPurchases   = insights.reduce((s, i) => s + i.purchases, 0);
   const totalRevenue     = insights.reduce((s, i) => s + i.purchaseValue, 0);
-  const avgCtr     = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
-  const overallRoas = totalSpend > 0 ? totalRevenue / totalSpend : 0;
-  const avgCpa      = totalPurchases > 0 ? totalSpend / totalPurchases : 0;
-  return { totalSpend, totalImpressions, totalClicks, avgCtr, totalReach, totalPurchases, totalRevenue, overallRoas, avgCpa };
+  const avgCtr       = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0;
+  const avgFrequency = totalReach > 0 ? totalImpressions / totalReach : 0;
+  const overallRoas  = totalSpend > 0 ? totalRevenue / totalSpend : 0;
+  const avgCpa       = totalPurchases > 0 ? totalSpend / totalPurchases : 0;
+  return { totalSpend, totalImpressions, totalClicks, avgCtr, totalReach, avgFrequency, totalPurchases, totalRevenue, overallRoas, avgCpa };
 }
