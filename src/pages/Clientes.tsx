@@ -1,17 +1,23 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Users, RefreshCw, Search } from 'lucide-react';
+import { Users, RefreshCw, Search, X, ShoppingBag, Phone, Mail, Calendar } from 'lucide-react';
 import { getSettings } from '../services/dataService';
-import { fetchTNCustomers } from '../services/tiendanubeService';
-import type { TNCustomer } from '../services/tiendanubeService';
+import { fetchTNCustomers, fetchTNCustomerOrders } from '../services/tiendanubeService';
+import type { TNCustomer, TNOrder } from '../services/tiendanubeService';
 import './Clientes.css';
 import './TiendanubeVentas.css';
 
 const fmtARS = (n: number) =>
-  n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
+  n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 type SortKey = 'total_spent' | 'orders_count' | 'created_at';
 
-const MIN_ORDERS_OPTIONS = [1, 2, 5, 10] as const;
+const MIN_ORDERS_OPTIONS = [
+  { value: 0, label: 'Todos' },
+  { value: 1, label: '1+' },
+  { value: 2, label: '2+' },
+  { value: 5, label: '5+' },
+  { value: 10, label: '10+' },
+] as const;
 
 export default function Clientes() {
   const [customers, setCustomers] = useState<TNCustomer[]>([]);
@@ -20,8 +26,13 @@ export default function Clientes() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const [search, setSearch] = useState('');
-  const [minOrders, setMinOrders] = useState<number>(1);
+  const [minOrders, setMinOrders] = useState<number>(0);
   const [sortKey, setSortKey] = useState<SortKey>('total_spent');
+
+  // Detail panel
+  const [selectedCustomer, setSelectedCustomer] = useState<TNCustomer | null>(null);
+  const [customerOrders, setCustomerOrders] = useState<TNOrder[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
 
   const loadData = async (force = false) => {
     setError(null);
@@ -46,11 +57,28 @@ export default function Clientes() {
     }
   };
 
+  const openCustomer = async (c: TNCustomer) => {
+    setSelectedCustomer(c);
+    setCustomerOrders([]);
+    setLoadingOrders(true);
+    try {
+      const settings = getSettings();
+      const storeId  = settings?.tiendanubeStoreId?.trim() ?? '';
+      const token    = settings?.tiendanubeToken?.trim()    ?? '';
+      const orders = await fetchTNCustomerOrders(storeId, token, c.id);
+      setCustomerOrders(orders);
+    } catch (err) {
+      console.error('Error cargando órdenes del cliente:', err);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
   useEffect(() => { loadData(); }, []);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    let base = customers.filter(c => c.orders_count >= minOrders);
+    let base = minOrders === 0 ? customers : customers.filter(c => c.orders_count >= minOrders);
     if (q) {
       base = base.filter(c =>
         c.name.toLowerCase().includes(q) ||
@@ -129,15 +157,15 @@ export default function Clientes() {
 
           {/* Mínimo de órdenes */}
           <div className="clientes-filter-group">
-            <span className="clientes-filter-label">Mínimo de órdenes:</span>
+            <span className="clientes-filter-label">Órdenes:</span>
             <div className="clientes-filter-btns">
-              {MIN_ORDERS_OPTIONS.map(n => (
+              {MIN_ORDERS_OPTIONS.map(({ value, label }) => (
                 <button
-                  key={n}
-                  className={`clientes-filter-btn ${minOrders === n ? 'active' : ''}`}
-                  onClick={() => setMinOrders(n)}
+                  key={value}
+                  className={`clientes-filter-btn ${minOrders === value ? 'active' : ''}`}
+                  onClick={() => setMinOrders(value)}
                 >
-                  {n}+
+                  {label}
                 </button>
               ))}
             </div>
@@ -218,7 +246,7 @@ export default function Clientes() {
                   timeZone: 'America/Argentina/Buenos_Aires',
                 });
                 return (
-                  <tr key={c.id}>
+                  <tr key={c.id} className="clientes-row-clickable" onClick={() => openCustomer(c)}>
                     <td className="tn-td-num">{i + 1}</td>
                     <td className="tn-td-cliente">
                       <span className="tn-client-name">{c.name || '—'}</span>
@@ -234,6 +262,97 @@ export default function Clientes() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* ── Panel de detalle del cliente ── */}
+      {selectedCustomer && (
+        <div className="cliente-detail-overlay" onClick={() => setSelectedCustomer(null)}>
+          <div className="cliente-detail-panel glass-panel" onClick={e => e.stopPropagation()}>
+            <div className="cliente-detail-header">
+              <div className="cliente-detail-title">
+                <Users size={18} className="section-icon" />
+                <h2>{selectedCustomer.name || 'Cliente sin nombre'}</h2>
+              </div>
+              <button className="rec-close-btn" onClick={() => setSelectedCustomer(null)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Info del cliente */}
+            <div className="cliente-detail-info">
+              {selectedCustomer.email && (
+                <div className="cliente-detail-info-row">
+                  <Mail size={13} className="cliente-detail-info-icon" />
+                  <span>{selectedCustomer.email}</span>
+                </div>
+              )}
+              {selectedCustomer.phone && (
+                <div className="cliente-detail-info-row">
+                  <Phone size={13} className="cliente-detail-info-icon" />
+                  <span>{selectedCustomer.phone}</span>
+                </div>
+              )}
+              <div className="cliente-detail-info-row">
+                <Calendar size={13} className="cliente-detail-info-icon" />
+                <span>Registrado el {new Date(selectedCustomer.created_at).toLocaleDateString('es-AR', {
+                  day: '2-digit', month: '2-digit', year: 'numeric',
+                  timeZone: 'America/Argentina/Buenos_Aires',
+                })}</span>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="cliente-detail-stats">
+              <div className="cliente-detail-stat">
+                <span className="cliente-detail-stat-value">{selectedCustomer.orders_count}</span>
+                <span className="cliente-detail-stat-label">Órdenes</span>
+              </div>
+              <div className="cliente-detail-stat">
+                <span className="cliente-detail-stat-value">{fmtARS(parseFloat(selectedCustomer.total_spent))}</span>
+                <span className="cliente-detail-stat-label">Total gastado</span>
+              </div>
+            </div>
+
+            {/* Órdenes */}
+            <div className="cliente-detail-orders-title">
+              <ShoppingBag size={14} className="section-icon" />
+              <span>Compras</span>
+            </div>
+
+            {loadingOrders ? (
+              <div className="cliente-detail-loading">
+                <RefreshCw size={18} className="spinning" />
+                <span>Cargando compras...</span>
+              </div>
+            ) : customerOrders.length === 0 ? (
+              <p className="cliente-detail-empty">No se encontraron compras registradas.</p>
+            ) : (
+              <div className="cliente-orders-list">
+                {customerOrders.map(o => (
+                  <div key={o.id} className="cliente-order-row">
+                    <div className="cliente-order-meta">
+                      <span className="cliente-order-num">#{o.number}</span>
+                      <span className={`tn-status-badge status-${o.payment_status}`}>
+                        {o.payment_status === 'paid' ? 'Pagado' :
+                         o.payment_status === 'pending' ? 'Pendiente' :
+                         o.payment_status === 'refunded' ? 'Reembolsado' :
+                         o.payment_status === 'voided' ? 'Anulado' :
+                         o.payment_status}
+                      </span>
+                      <span className="cliente-order-date">
+                        {new Date(o.created_at).toLocaleDateString('es-AR', {
+                          day: '2-digit', month: '2-digit', year: 'numeric',
+                          timeZone: 'America/Argentina/Buenos_Aires',
+                        })}
+                      </span>
+                    </div>
+                    <span className="cliente-order-total">{fmtARS(parseFloat(o.total))}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

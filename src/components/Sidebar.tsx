@@ -27,12 +27,6 @@ export default function Sidebar() {
             </NavLink>
           </li>
           <li className="nav-item">
-            <NavLink to="/clientes" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-              <Users size={20} />
-              <span>Clientes</span>
-            </NavLink>
-          </li>
-          <li className="nav-item">
             <NavLink to="/alerts" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <Bell size={20} />
               <span>Alertas</span>
@@ -57,6 +51,18 @@ export default function Sidebar() {
             </NavLink>
           </li>
           <li className="nav-item">
+            <NavLink to="/clientes" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+              <Users size={20} />
+              <span>Clientes</span>
+            </NavLink>
+          </li>
+          <li className="nav-item">
+            <NavLink to="/cupones" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+              <Tag size={20} />
+              <span>Cupones</span>
+            </NavLink>
+          </li>
+          <li className="nav-item">
             <NavLink to="/mails" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <Inbox size={20} />
               <span>Mails</span>
@@ -66,12 +72,6 @@ export default function Sidebar() {
             <NavLink to="/ruleta" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <Dices size={20} />
               <span>Ruleta</span>
-            </NavLink>
-          </li>
-          <li className="nav-item">
-            <NavLink to="/cupones" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-              <Tag size={20} />
-              <span>Cupones</span>
             </NavLink>
           </li>
         </ul>

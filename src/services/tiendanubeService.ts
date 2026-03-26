@@ -402,6 +402,24 @@ export async function fetchTNCustomers(storeId: string, token: string): Promise<
   return all.sort((a, b) => parseFloat(b.total_spent) - parseFloat(a.total_spent));
 }
 
+export async function fetchTNCustomerOrders(
+  storeId: string,
+  token: string,
+  customerId: number,
+): Promise<TNOrder[]> {
+  const all: TNOrder[] = [];
+  for (let page = 1; page <= 5; page++) {
+    const { data, hasMore } = await tnFetch(storeId, token, 'orders', {
+      customer_id: String(customerId),
+      per_page: '50',
+      page: String(page),
+    });
+    all.push(...(data as TNOrder[]));
+    if (!hasMore) break;
+  }
+  return all.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+}
+
 export async function fetchTNCategories(storeId: string, token: string): Promise<TNCategory[]> {
   const { data } = await tnFetch(storeId, token, 'categories', { per_page: '200' });
   return data as TNCategory[];
