@@ -71,6 +71,41 @@
   border-radius: var(--radius-md);
 }
 
+/* ── Bloques con label ───────────────────────────────── */
+.stock-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.stock-block-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+  margin: 0;
+  padding-left: 0.1rem;
+}
+
+.stock-controls-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+}
+
+.stock-controls-block .stock-controls {
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 0;
+}
+
+.stock-controls-block .stock-filter-bar {
+  padding-top: 0.65rem;
+}
+
 /* ── Summary cards ───────────────────────────────────── */
 .stock-summary {
   display: grid;

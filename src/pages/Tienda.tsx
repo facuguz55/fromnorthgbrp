@@ -635,90 +635,96 @@ function StockTab() {
         </div>
       )}
 
-      {/* Stats */}
+      {/* Bloque 1: Resumen de stock */}
       {items.length > 0 && (
-        <div className="stock-summary">
-          <div className="stock-stat-card glass-panel">
-            <span className="stat-value">{items.length - ocultos}</span>
-            <span className="stat-label">Total visibles</span>
-          </div>
-          <div className="stock-stat-card glass-panel">
-            <span className="stat-value stat-ok">{conStock}</span>
-            <span className="stat-label">Con stock</span>
-          </div>
-          <div className="stock-stat-card glass-panel">
-            <span className="stat-value stat-warn">{stockBajo}</span>
-            <span className="stat-label">Stock bajo (&lt;5)</span>
-          </div>
-          <div className="stock-stat-card glass-panel">
-            <span className="stat-value stat-danger">{sinStock}</span>
-            <span className="stat-label">Sin stock</span>
+        <div className="stock-block">
+          <p className="stock-block-label">Resumen de stock</p>
+          <div className="stock-summary">
+            <div className="stock-stat-card glass-panel">
+              <span className="stat-value">{items.length - ocultos}</span>
+              <span className="stat-label">Total visibles</span>
+            </div>
+            <div className="stock-stat-card glass-panel">
+              <span className="stat-value stat-ok">{conStock}</span>
+              <span className="stat-label">Con stock</span>
+            </div>
+            <div className="stock-stat-card glass-panel">
+              <span className="stat-value stat-warn">{stockBajo}</span>
+              <span className="stat-label">Stock bajo (&lt;5)</span>
+            </div>
+            <div className="stock-stat-card glass-panel">
+              <span className="stat-value stat-danger">{sinStock}</span>
+              <span className="stat-label">Sin stock</span>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Controles */}
+      {/* Bloque 2: Controles */}
       {!loading && !noConfig && !error && (
-        <>
-          <div className="stock-controls">
-            <div className="search-box">
-              <Search size={15} className="search-icon" />
-              <input
-                type="text"
-                placeholder="Buscar por nombre o SKU..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="search-input"
-              />
-            </div>
-            <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-              {sorted.length} resultado{sorted.length !== 1 ? 's' : ''}
-            </span>
-            <button className="btn-primary update-btn" onClick={handleUpdate} disabled={updating || loading}>
-              {updating ? (
-                <><RefreshCw size={15} className="spinning" /> Cargando...</>
-              ) : syncDone ? (
-                <>✓ Actualizado</>
-              ) : (
-                <><RefreshCw size={15} /> Actualizar</>
-              )}
-            </button>
-            {lastUpdated && (
-              <span className="text-muted" style={{ fontSize: '0.75rem' }}>
-                {lastUpdated.toLocaleTimeString('es-AR')}
+        <div className="stock-block">
+          <p className="stock-block-label">Controles</p>
+          <div className="stock-controls-block glass-panel">
+            <div className="stock-controls">
+              <div className="search-box">
+                <Search size={15} className="search-icon" />
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre o SKU..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="search-input"
+                />
+              </div>
+              <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+                {sorted.length} resultado{sorted.length !== 1 ? 's' : ''}
               </span>
-            )}
-          </div>
+              <button className="btn-primary update-btn" onClick={handleUpdate} disabled={updating || loading}>
+                {updating ? (
+                  <><RefreshCw size={15} className="spinning" /> Cargando...</>
+                ) : syncDone ? (
+                  <>✓ Actualizado</>
+                ) : (
+                  <><RefreshCw size={15} /> Actualizar</>
+                )}
+              </button>
+              {lastUpdated && (
+                <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                  {lastUpdated.toLocaleTimeString('es-AR')}
+                </span>
+              )}
+            </div>
 
-          <div className="stock-filter-bar">
-            <div className="stock-tabs">
-              {(['todos', 'con-stock', 'sin-stock', 'ocultos'] as FilterTab[]).map(tab => (
-                <button
-                  key={tab}
-                  className={`stock-tab ${activeTab === tab ? 'active' : ''}`}
-                  onClick={() => handleTabChange(tab)}
-                >
-                  {tab === 'todos' && 'Todos'}
-                  {tab === 'con-stock' && 'Con stock'}
-                  {tab === 'sin-stock' && 'Sin stock'}
-                  {tab === 'ocultos' && (
-                    <>Ocultos{ocultos > 0 && <span className="tab-badge">{ocultos}</span>}</>
-                  )}
+            <div className="stock-filter-bar">
+              <div className="stock-tabs">
+                {(['todos', 'con-stock', 'sin-stock', 'ocultos'] as FilterTab[]).map(tab => (
+                  <button
+                    key={tab}
+                    className={`stock-tab ${activeTab === tab ? 'active' : ''}`}
+                    onClick={() => handleTabChange(tab)}
+                  >
+                    {tab === 'todos' && 'Todos'}
+                    {tab === 'con-stock' && 'Con stock'}
+                    {tab === 'sin-stock' && 'Sin stock'}
+                    {tab === 'ocultos' && (
+                      <>Ocultos{ocultos > 0 && <span className="tab-badge">{ocultos}</span>}</>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <div className="stock-bulk-actions">
+                <button className="btn-action" onClick={handleHideAllNoStock} disabled={hidingAll || showingAll}>
+                  {hidingAll ? <RefreshCw size={13} className="spinning" /> : <EyeOff size={13} />}
+                  {hidingAll ? 'Ocultando...' : 'Ocultar sin stock'}
                 </button>
-              ))}
-            </div>
-            <div className="stock-bulk-actions">
-              <button className="btn-action" onClick={handleHideAllNoStock} disabled={hidingAll || showingAll}>
-                {hidingAll ? <RefreshCw size={13} className="spinning" /> : <EyeOff size={13} />}
-                {hidingAll ? 'Ocultando...' : 'Ocultar sin stock'}
-              </button>
-              <button className="btn-action btn-action-ghost" onClick={handleShowAll} disabled={showingAll || ocultos === 0}>
-                {showingAll ? <RefreshCw size={13} className="spinning" /> : <Eye size={13} />}
-                {showingAll ? 'Mostrando...' : 'Mostrar todos'}
-              </button>
+                <button className="btn-action btn-action-ghost" onClick={handleShowAll} disabled={showingAll || ocultos === 0}>
+                  {showingAll ? <RefreshCw size={13} className="spinning" /> : <Eye size={13} />}
+                  {showingAll ? 'Mostrando...' : 'Mostrar todos'}
+                </button>
+              </div>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* Estados */}

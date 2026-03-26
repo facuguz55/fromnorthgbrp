@@ -139,39 +139,48 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Métricas ── */}
+      {/* ── Bloque 1: Métricas principales ── */}
       {metrics && (
         <div className="metrics-grid">
           <MetricCard title="Ganancia Total (90d)"  value={`$${fmtInt(metrics.totalFacturado)}`} icon={<DollarSign size={18} />} />
           <MetricCard title="Ventas Hoy"            value={`$${fmt(metrics.ventasHoy)}`}         icon={<Activity size={18} />}     subtitle={resets.labelHoy} />
           <MetricCard title="Ventas Semana"         value={`$${fmt(metrics.ventasSemana)}`}      icon={<CalendarDays size={18} />} subtitle={resets.labelSemana} />
-          <div className="metric-card-link" onClick={() => setShowRecurrentes(true)} style={{ cursor: 'pointer' }}>
-            <MetricCard title="Clientes recurrentes" value={fmtInt(metrics.clientesRecurrentes)} icon={<UserCheck size={18} />} subtitle="Ver lista →" />
+        </div>
+      )}
+
+      {/* ── Bloque 2: Actividad y Conversión ── */}
+      {metrics && (
+        <div className="dashboard-section">
+          <p className="dashboard-section-label">Actividad y Conversión</p>
+          <div className="metrics-grid">
+            <div className="metric-card-link" onClick={() => setShowRecurrentes(true)} style={{ cursor: 'pointer' }}>
+              <MetricCard title="Clientes recurrentes" value={fmtInt(metrics.clientesRecurrentes)} icon={<UserCheck size={18} />} subtitle="Ver lista →" />
+            </div>
+            <Link
+              to="/sheet-viewer"
+              state={{ gid: GID_CLICKS, title: 'Clicks de seguimiento', subtitle: 'Registros de clicks' }}
+              className="metric-card-link"
+            >
+              <MetricCard
+                title="Clicks de seguimiento"
+                value={clicksCount !== null ? fmtInt(clicksCount) : '—'}
+                icon={<MousePointerClick size={18} />}
+                subtitle="Ver registros →"
+              />
+            </Link>
+            <Link
+              to="/sheet-viewer"
+              state={{ gid: GID_CONVERTIDOS, title: 'Seguimientos convertidos', subtitle: 'Clientes que completaron el seguimiento' }}
+              className="metric-card-link"
+            >
+              <MetricCard
+                title="Seguimientos convertidos"
+                value={convertidosCount !== null ? fmtInt(convertidosCount) : '—'}
+                icon={<Users size={18} />}
+                subtitle="Ver clientes →"
+              />
+            </Link>
           </div>
-          <Link
-            to="/sheet-viewer"
-            state={{ gid: GID_CLICKS, title: 'Clicks de seguimiento', subtitle: 'Registros de clicks' }}
-            className="metric-card-link"
-          >
-            <MetricCard
-              title="Clicks de seguimiento"
-              value={clicksCount !== null ? fmtInt(clicksCount) : '—'}
-              icon={<MousePointerClick size={18} />}
-              subtitle="Ver registros →"
-            />
-          </Link>
-          <Link
-            to="/sheet-viewer"
-            state={{ gid: GID_CONVERTIDOS, title: 'Seguimientos convertidos', subtitle: 'Clientes que completaron el seguimiento' }}
-            className="metric-card-link"
-          >
-            <MetricCard
-              title="Seguimientos convertidos"
-              value={convertidosCount !== null ? fmtInt(convertidosCount) : '—'}
-              icon={<Users size={18} />}
-              subtitle="Ver clientes →"
-            />
-          </Link>
         </div>
       )}
 
