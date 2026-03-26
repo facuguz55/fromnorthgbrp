@@ -35,12 +35,6 @@ export default function Sidebar() {
               <span>Alertas</span>
             </NavLink>
           </li>
-          <li className="nav-item">
-            <NavLink to="/calendar" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-              <CalendarDays size={20} />
-              <span>Calendario</span>
-            </NavLink>
-          </li>
 
           {/* ── Operación ── */}
           <li className="nav-group-label">Operación</li>
@@ -53,6 +47,12 @@ export default function Sidebar() {
 
           {/* ── Gestión ── */}
           <li className="nav-group-label">Gestión</li>
+          <li className="nav-item">
+            <NavLink to="/calendar" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+              <CalendarDays size={20} />
+              <span>Calendario</span>
+            </NavLink>
+          </li>
           <li className="nav-item">
             <NavLink to="/mails" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <Inbox size={20} />

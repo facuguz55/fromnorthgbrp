@@ -501,8 +501,6 @@ function StockTab() {
   const [hidingAll, setHidingAll]   = useState(false);
   const [showingAll, setShowingAll] = useState(false);
   const [toasts, setToasts]         = useState<StockToast[]>([]);
-  const toastIdRef                  = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const addToast = (message: string, type: 'ok' | 'err' = 'ok') => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
