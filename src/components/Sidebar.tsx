@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Settings, PieChart, BarChart2, Bell, Lock, CalendarDays, Package, Dices, Inbox, Store } from 'lucide-react';
+import { LayoutDashboard, Settings, PieChart, BarChart2, Bell, Lock, CalendarDays, Dices, Inbox, Store } from 'lucide-react';
 import './Sidebar.css';
 
 export default function Sidebar() {
@@ -14,6 +14,9 @@ export default function Sidebar() {
 
       <nav className="sidebar-nav">
         <ul className="nav-list">
+
+          {/* ── General ── */}
+          <li className="nav-group-label">General</li>
           <li className="nav-item">
             <NavLink to="/dashboard" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <LayoutDashboard size={20} />
@@ -38,30 +41,34 @@ export default function Sidebar() {
               <span>Calendario</span>
             </NavLink>
           </li>
-          <li className="nav-item">
-            <NavLink to="/stock" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-              <Package size={20} />
-              <span>Stock</span>
-            </NavLink>
-          </li>
+
+          {/* ── Operación ── */}
+          <li className="nav-group-label">Operación</li>
           <li className="nav-item">
             <NavLink to="/tienda" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <Store size={20} />
               <span>Tienda</span>
             </NavLink>
           </li>
+
+          {/* ── Gestión ── */}
+          <li className="nav-group-label">Gestión</li>
           <li className="nav-item">
             <NavLink to="/mails" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <Inbox size={20} />
               <span>Mails</span>
             </NavLink>
           </li>
+
+          {/* ── Ruleta ── */}
+          <li className="nav-group-label">Extra</li>
           <li className="nav-item">
             <NavLink to="/ruleta" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <Dices size={20} />
               <span>Ruleta</span>
             </NavLink>
           </li>
+
         </ul>
 
         <div className="sidebar-bottom">

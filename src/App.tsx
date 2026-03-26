@@ -7,7 +7,6 @@ import Settings from './pages/Settings';
 import Workflows from './pages/Workflows';
 import Alerts from './pages/Alerts';
 import Calendar from './pages/Calendar';
-import Stock from './pages/Stock';
 import Ruleta from './pages/Ruleta';
 import SeguimientosEnviados from './pages/SeguimientosEnviados';
 import SheetViewer from './pages/SheetViewer';
@@ -46,7 +45,7 @@ function App() {
             <Route path="/workflows" element={<Workflows />} />
             <Route path="/alerts" element={<Alerts />} />
             <Route path="/calendar" element={<Calendar />} />
-            <Route path="/stock" element={<Stock />} />
+            <Route path="/stock" element={<Navigate to="/tienda" replace />} />
             <Route path="/ruleta" element={<Ruleta />} />
             <Route path="/seguimientos-enviados" element={<SeguimientosEnviados />} />
             <Route path="/sheet-viewer" element={<SheetViewer />} />
