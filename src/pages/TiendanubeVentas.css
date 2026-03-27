@@ -329,7 +329,7 @@
 
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .tn-page { padding: 1rem; gap: 1.5rem; }
+  .tn-page { padding: 0; gap: 1.25rem; }
   .tn-header h1 { font-size: 1.25rem; }
   .tn-table th, .tn-table td { padding: 0.55rem 0.75rem; }
 }

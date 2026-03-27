@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   RefreshCw, Mail, Send, Sparkles, AlertCircle,
   CheckCircle2, Inbox, Copy, EyeOff,
@@ -250,10 +250,12 @@ export default function Mails() {
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [toast,         setToast]         = useState<{ type: 'ok' | 'err'; msg: string } | null>(null);
   const [debugRaw,      setDebugRaw]      = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = (type: 'ok' | 'err', msg: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast({ type, msg });
-    setTimeout(() => setToast(null), 4000);
+    toastTimer.current = setTimeout(() => setToast(null), 4000);
   };
 
   const fetchMails = useCallback(async (withCache = false) => {
@@ -322,7 +324,7 @@ export default function Mails() {
     }
   }, []);
 
-  useEffect(() => { fetchMails(true); }, []);
+  useEffect(() => { fetchMails(true); }, [fetchMails]);
 
   const sendMail = async () => {
     if (!selected || !respuesta.trim()) return;

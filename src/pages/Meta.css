@@ -458,7 +458,7 @@
 
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .meta-page { padding: 1rem; gap: 1.5rem; }
+  .meta-page { padding: 0; gap: 1.25rem; }
   .meta-title { font-size: 1.25rem; }
   .meta-date-btns { gap: 0.2rem; }
   .meta-date-btn { font-size: 0.68rem; padding: 0.22rem 0.45rem; }

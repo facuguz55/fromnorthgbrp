@@ -215,6 +215,7 @@
     top: auto;
     flex-direction: row;
     padding: 0.5rem 0;
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     border-top: 1px solid var(--border-color);
     background: var(--bg-base);
@@ -236,6 +237,11 @@
   }
 
   .sidebar-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Ocultar las etiquetas de grupo en la barra inferior */
+  .nav-group-label {
     display: none;
   }
 
@@ -270,12 +276,16 @@
     display: none;
   }
 
+  /* Touch targets mínimos de 44px para cumplir guías de accesibilidad */
   .nav-link {
     flex-direction: column;
-    padding: 0.5rem 0.6rem;
+    padding: 0.6rem 0.75rem;
     gap: 0.2rem;
     align-items: center;
     font-size: 0.7rem;
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
   }
 
   .nav-link span {

@@ -240,6 +240,7 @@
   align-items: center;
   justify-content: flex-end;
   padding: 1rem;
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
 }
 
 .cliente-detail-panel {
@@ -394,7 +395,7 @@
 
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .clientes-page { padding: 1rem; gap: 1.25rem; }
+  .clientes-page { padding: 0; gap: 1.25rem; }
   .clientes-title { font-size: 1.25rem; }
   .clientes-filters { gap: 0.65rem 1rem; }
   .clientes-search-box { max-width: 100%; }

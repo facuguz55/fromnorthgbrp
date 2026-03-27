@@ -216,3 +216,30 @@ a:hover {
 .fade-in {
   animation: fadeIn var(--transition-normal) ease both;
 }
+
+/* ── Mobile fixes ─────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Prevenir zoom automático en iOS al enfocar inputs */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  select,
+  textarea {
+    font-size: max(16px, 1em) !important;
+  }
+
+  /* Excepciones donde el font-size grande se ve mal */
+  input[type="color"],
+  input[type="checkbox"],
+  input[type="radio"] {
+    font-size: inherit !important;
+  }
+
+  .page-header h1 {
+    font-size: 1.25rem;
+  }
+}

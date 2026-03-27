@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Tag, Plus, RefreshCw, AlertCircle,
   CheckCircle2, Percent, DollarSign, Truck, X, Pencil,
@@ -113,10 +113,12 @@ export default function Cupones() {
   const [editingCupon,  setEditingCupon]  = useState<Cupon | null>(null);
   const [editForm,      setEditForm]      = useState<FormState>(FORM_EMPTY);
   const [updating,      setUpdating]      = useState(false);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = (type: 'ok' | 'err', msg: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast({ type, msg });
-    setTimeout(() => setToast(null), 4000);
+    toastTimer.current = setTimeout(() => setToast(null), 4000);
   };
 
   const fetchCupones = useCallback(async () => {

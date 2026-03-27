@@ -399,8 +399,8 @@
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 768px) {
   .analytics-page {
-    padding: 1rem;
-    gap: 1.5rem;
+    padding: 0;
+    gap: 1.25rem;
   }
 
   .analytics-header h1 {

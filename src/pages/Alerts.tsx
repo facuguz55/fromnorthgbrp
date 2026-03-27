@@ -91,8 +91,8 @@ function AlertCard({ alert }: { alert: AlertItem }) {
         </span>
       </div>
       <div className="alert-metrics">
-        {alert.metrics.map((m, i) => (
-          <div key={i} className="alert-metric-row">
+        {alert.metrics.map((m) => (
+          <div key={m.label} className="alert-metric-row">
             <span className="alert-metric-label">{m.label}</span>
             <span className="alert-metric-value">{m.value}</span>
           </div>

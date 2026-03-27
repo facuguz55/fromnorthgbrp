@@ -508,6 +508,8 @@
   .toast-container  { bottom: 5.5rem; right: 1rem; }
   .stock-controls   { flex-wrap: wrap; }
   .search-box       { max-width: 100%; width: 100%; }
+  /* En mobile no hay hover, mostrar el botón ojo siempre */
+  .btn-eye          { opacity: 1; }
 }
 
 @media (max-width: 480px) {
