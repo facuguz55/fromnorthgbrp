@@ -192,6 +192,9 @@
   cursor: not-allowed;
 }
 
+/* Labels: full visible en desktop, short oculto */
+.nav-label-short { display: none; }
+
 .nav-link.nav-link-discrete {
   opacity: 0.35;
   font-size: 0.75rem;
@@ -284,7 +287,7 @@
     transition: color 0.2s;
   }
 
-  /* Mostrar label corta bajo el ícono */
+  /* Mostrar label bajo el ícono */
   .nav-link span {
     display: block;
     white-space: nowrap;
@@ -294,6 +297,10 @@
     line-height: 1;
     text-align: center;
   }
+
+  /* Swap: ocultar full, mostrar short */
+  .nav-label-full  { display: none; }
+  .nav-label-short { display: block; }
 
   .nav-link svg {
     transition: color 0.2s, transform 0.2s;

@@ -411,24 +411,39 @@
   .metrics-both-grids .dashboard-section-label {
     font-size: 0.5rem;
   }
-  /* Números y tarjetas más chicos para caber en 2 columnas */
+  /* Números y tarjetas más chicos, centrados */
   .metrics-both-grids .metric-card {
-    padding: 0.55rem 0.6rem;
+    padding: 0.55rem 0.5rem;
     gap: 0.2rem;
+    align-items: center;
+  }
+  .metrics-both-grids .metric-header {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    justify-content: center;
+    width: 100%;
+  }
+  .metrics-both-grids .metric-icon {
+    padding: 0.25rem;
+  }
+  .metrics-both-grids .metric-body {
+    align-items: center;
+    width: 100%;
   }
   .metrics-both-grids .metric-value {
     font-size: 0.95rem;
     letter-spacing: -0.03em;
+    text-align: center;
   }
   .metrics-both-grids .metric-title {
     font-size: 0.5rem;
     letter-spacing: 0.04em;
+    text-align: center;
   }
   .metrics-both-grids .metric-subtitle {
     font-size: 0.55rem;
-  }
-  .metrics-both-grids .metric-icon {
-    padding: 0.25rem;
+    text-align: center;
   }
 }
 

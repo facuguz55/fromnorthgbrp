@@ -419,4 +419,32 @@
   .analytics-chart-tall {
     height: 260px !important;
   }
+
+  /* ── Últimas órdenes: sin scroll horizontal ── */
+  /* Oculta columnas menos críticas (#, Productos, Pago) */
+  .analytics-page .tn-table-wrapper {
+    overflow-x: hidden;
+  }
+  .analytics-page .tn-table {
+    width: 100%;
+    table-layout: fixed;
+  }
+  /* Col 1=#  Col 4=Productos  Col 6=Pago */
+  .analytics-page .tn-table th:nth-child(1),
+  .analytics-page .tn-table td:nth-child(1),
+  .analytics-page .tn-table th:nth-child(4),
+  .analytics-page .tn-table td:nth-child(4),
+  .analytics-page .tn-table th:nth-child(6),
+  .analytics-page .tn-table td:nth-child(6) {
+    display: none;
+  }
+  /* Anchos de columnas restantes: Orden, Cliente, Total, Fecha */
+  .analytics-page .tn-table th:nth-child(2),
+  .analytics-page .tn-table td:nth-child(2) { width: 18%; }
+  .analytics-page .tn-table th:nth-child(3),
+  .analytics-page .tn-table td:nth-child(3) { width: 37%; }
+  .analytics-page .tn-table th:nth-child(5),
+  .analytics-page .tn-table td:nth-child(5) { width: 22%; }
+  .analytics-page .tn-table th:nth-child(7),
+  .analytics-page .tn-table td:nth-child(7) { width: 23%; }
 }

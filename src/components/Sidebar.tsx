@@ -20,7 +20,8 @@ export default function Sidebar() {
           <li className="nav-item">
             <NavLink to="/dashboard" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <LayoutDashboard size={20} />
-              <span>Tienda Web</span>
+              <span className="nav-label-full">Tienda Web</span>
+              <span className="nav-label-short">Tienda</span>
             </NavLink>
           </li>
           <li className="nav-item">
@@ -41,7 +42,8 @@ export default function Sidebar() {
           <li className="nav-item">
             <NavLink to="/tienda" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <Store size={20} />
-              <span>Gestión de Tienda</span>
+              <span className="nav-label-full">Gestión de Tienda</span>
+              <span className="nav-label-short">Gestión</span>
             </NavLink>
           </li>
           <li className="nav-item">
