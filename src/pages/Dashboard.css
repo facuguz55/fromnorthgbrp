@@ -386,6 +386,52 @@
   }
 }
 
+/* ── Wrapper ambas grillas (transparente en desktop) ─── */
+.metrics-both-grids {
+  display: contents;
+}
+
+@media (max-width: 640px) {
+  .metrics-both-grids {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+  .metrics-both-grids > * {
+    flex: 1;
+    min-width: 0;
+  }
+  .metrics-both-grids .metrics-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.4rem;
+  }
+  .metrics-both-grids .dashboard-section {
+    gap: 0.4rem;
+  }
+  .metrics-both-grids .dashboard-section-label {
+    font-size: 0.5rem;
+  }
+  /* Números y tarjetas más chicos para caber en 2 columnas */
+  .metrics-both-grids .metric-card {
+    padding: 0.55rem 0.6rem;
+    gap: 0.2rem;
+  }
+  .metrics-both-grids .metric-value {
+    font-size: 0.95rem;
+    letter-spacing: -0.03em;
+  }
+  .metrics-both-grids .metric-title {
+    font-size: 0.5rem;
+    letter-spacing: 0.04em;
+  }
+  .metrics-both-grids .metric-subtitle {
+    font-size: 0.55rem;
+  }
+  .metrics-both-grids .metric-icon {
+    padding: 0.25rem;
+  }
+}
+
 /* ── Responsive ──────────────────────────────────────── */
 @media (max-width: 700px) {
   .insights-grid {

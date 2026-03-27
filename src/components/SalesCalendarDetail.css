@@ -371,3 +371,56 @@
     font-size: 0.65rem;
   }
 }
+
+/* ── Mobile: solo mes actual, celdas responsivas ─────── */
+@media (max-width: 768px) {
+  /* Ocultar mes anterior */
+  .cal-two-months .cal-month-block:first-child {
+    display: none;
+  }
+  .cal-two-months {
+    justify-content: center;
+  }
+  .cal-month-block {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.75rem 0.5rem;
+  }
+
+  /* Título: solo mostrar el mes actual */
+  .cal-title-muted {
+    display: none;
+  }
+  .cal-detail-titles {
+    justify-content: center;
+  }
+  .cal-detail-title {
+    min-width: auto;
+    text-align: center;
+  }
+
+  /* Leyenda centrada */
+  .cal-detail-legend {
+    justify-content: center;
+  }
+
+  /* Grid con celdas cuadradas que se adaptan al ancho */
+  .cal-detail-grid {
+    grid-template-columns: repeat(7, 1fr);
+    width: 100%;
+    gap: 3px;
+  }
+  .cal-detail-day-label {
+    width: auto;
+    text-align: center;
+    font-size: 0.58rem;
+  }
+  .cal-detail-cell {
+    width: auto;
+    height: auto;
+    aspect-ratio: 1;
+  }
+  .cal-detail-num {
+    font-size: 0.6rem;
+  }
+}

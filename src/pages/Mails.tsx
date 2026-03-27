@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   RefreshCw, Mail, Send, Sparkles, AlertCircle,
-  CheckCircle2, Inbox, Copy, EyeOff,
+  CheckCircle2, Inbox, Copy, EyeOff, X,
 } from 'lucide-react';
 import { fetchMailsFromDB, upsertMails, fetchMailDetail } from '../services/supabaseService';
 import type { MailRow } from '../services/supabaseService';
@@ -513,6 +513,9 @@ export default function Mails() {
 
             {/* Header del mail */}
             <div className="detail-header">
+              <button className="mail-detail-close-btn" onClick={() => setSelected(null)} aria-label="Cerrar">
+                <X size={18} />
+              </button>
               <div className="detail-sender-info">
                 <div className="detail-sender-name">{selected.nombre || selected.de}</div>
                 <div className="detail-sender-email">{selected.de}</div>

@@ -710,6 +710,46 @@
   }
 }
 
+/* ── Close button (solo mobile) ─────────────────────── */
+.mail-detail-close-btn {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  /* El panel derecho se convierte en overlay cuando hay mail seleccionado */
+  .mails-right:not(.mails-right-empty) {
+    position: fixed;
+    inset: 0;
+    z-index: 150;
+    background: var(--bg-base, #0b0f19);
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-radius: 0;
+    min-height: unset;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .mail-detail-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    border-radius: var(--radius-md);
+    width: 36px;
+    height: 36px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 0.15s, background 0.15s;
+  }
+
+  .mail-detail-close-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
 @media (max-width: 768px) {
   .mails-page { margin: -0.5rem -0.5rem; border-radius: 0; }
   .mail-toast { bottom: 5.5rem; right: 1rem; }
