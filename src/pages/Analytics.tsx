@@ -214,10 +214,16 @@ export default function Analytics() {
   }, [metrics]);
 
   // ── Análisis de productos por período ────────────────────────────────────────
-  // Elimina patrones de precio del nombre para unificar variantes
-  // Ej: "2 BAGGYS X $65.000 - PROMO LIMITADA" y "2 BAGGYS X $70.000 - PROMO LIMITADA" → mismo grupo
+  // Unifica variantes de producto eliminando:
+  //   - contenido entre paréntesis: "(BAGGY 1 - 42, BAGGY 5 / 42)", "(Negro, M)", "(40)", etc.
+  //   - patrones de precio: "$65.000"
+  // Ej: "2 BAGGYS X – PROMO LIMITADA (BAGGY 1 - 42 , BAGGY 5 / 42)" → "2 BAGGYS X – PROMO LIMITADA"
   const normalizarProducto = (nombre: string) =>
-    nombre.replace(/\$[\d.,]+/g, '').replace(/\s{2,}/g, ' ').trim();
+    nombre
+      .replace(/\$[\d.,]+/g, '')
+      .replace(/\s*\(.*?\)\s*/g, ' ')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
 
   const productosAnalisis = useMemo(() => {
     if (!metrics) return [];
