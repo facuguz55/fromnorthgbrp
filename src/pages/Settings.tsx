@@ -160,32 +160,11 @@ export default function Settings() {
             <div className="section-body">
               <div className="form-row">
                 <div className="form-group">
-                  <label htmlFor="currencySymbol">Símbolo de moneda</label>
-                  <select id="currencySymbol" name="currencySymbol" value={formData.currencySymbol} onChange={handleChange}>
-                    <option value="$">$ — Peso argentino (ARS)</option>
-                    <option value="USD">USD — Dólar</option>
-                    <option value="€">€ — Euro</option>
-                    <option value="£">£ — Libra</option>
-                    <option value="R$">R$ — Real brasileño</option>
-                    <option value="CLP">CLP — Peso chileno</option>
-                  </select>
-                </div>
-                <div className="form-group">
                   <label htmlFor="dateFormat">Formato de fecha</label>
                   <select id="dateFormat" name="dateFormat" value={formData.dateFormat} onChange={handleChange}>
                     <option value="DD/MM/YYYY">DD/MM/YYYY</option>
                     <option value="MM/DD/YYYY">MM/DD/YYYY</option>
                     <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                  </select>
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="language">Idioma</label>
-                  <select id="language" name="language" value={formData.language} onChange={handleChange}>
-                    <option value="es">Español</option>
-                    <option value="en">English</option>
-                    <option value="pt">Português</option>
                   </select>
                 </div>
               </div>

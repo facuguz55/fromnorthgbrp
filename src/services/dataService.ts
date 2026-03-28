@@ -7,8 +7,6 @@ export interface DashboardSettings {
   displayName: string;
   accentColor: string;
   compactMode: boolean;
-  currencySymbol: string;
-  language: string;
   dateFormat: string;
   sidebarCollapsed: boolean;
 }
@@ -23,8 +21,6 @@ const DEFAULT_SETTINGS: DashboardSettings = {
   displayName:       '',
   accentColor:       '#06b6d4',
   compactMode:       false,
-  currencySymbol:    '$',
-  language:          'es',
   dateFormat:        'DD/MM/YYYY',
   sidebarCollapsed:  false,
 };

@@ -110,10 +110,8 @@ export default function Dashboard() {
 
   const settings     = getSettings();
   const isConfigured = !!(settings?.tiendanubeStoreId && settings?.tiendanubeToken);
-  const currency = settings.currencySymbol || '$';
-  const locale   = settings.language === 'en' ? 'en-US' : settings.language === 'pt' ? 'pt-BR' : 'es-AR';
-  const fmt    = (v: number) => v.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const fmtInt = (v: number) => v.toLocaleString(locale, { maximumFractionDigits: 0 });
+  const fmt    = (v: number) => v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtInt = (v: number) => v.toLocaleString('es-AR', { maximumFractionDigits: 0 });
 
   return (
     <div className="dashboard-page fade-in">
@@ -145,9 +143,9 @@ export default function Dashboard() {
       {metrics && (
         <div className="metrics-both-grids">
           <div className="metrics-grid">
-            <MetricCard title="Ganancia Total (90d)"  value={fmtInt(metrics.totalFacturado)} currency={currency} icon={<DollarSign size={18} />} />
-            <MetricCard title="Ventas Hoy"            value={fmt(metrics.ventasHoy)}         currency={currency} icon={<Activity size={18} />}     subtitle={resets.labelHoy} />
-            <MetricCard title="Ventas Semana"         value={fmt(metrics.ventasSemana)}      currency={currency} icon={<CalendarDays size={18} />} subtitle={resets.labelSemana} />
+            <MetricCard title="Ganancia Total (90d)"  value={'$ ' + fmtInt(metrics.totalFacturado)} icon={<DollarSign size={18} />} />
+            <MetricCard title="Ventas Hoy"            value={'$ ' + fmt(metrics.ventasHoy)}         icon={<Activity size={18} />}     subtitle={resets.labelHoy} />
+            <MetricCard title="Ventas Semana"         value={'$ ' + fmt(metrics.ventasSemana)}      icon={<CalendarDays size={18} />} subtitle={resets.labelSemana} />
           </div>
           <div className="dashboard-section">
             <p className="dashboard-section-label">Actividad y Conversión</p>
@@ -200,7 +198,7 @@ export default function Dashboard() {
                     <span className="ranking-name" title={p.nombre}>{p.nombre}</span>
                     <div className="ranking-right">
                       <span className="ranking-sub">{fmtInt(p.cantidad)} uds.</span>
-                      <span className="ranking-value">{currency}{fmt(p.total)}</span>
+                      <span className="ranking-value">$ {fmt(p.total)}</span>
                     </div>
                   </li>
                 ))}
@@ -223,7 +221,7 @@ export default function Dashboard() {
                     </div>
                     <div className="ranking-right">
                       <span className="ranking-sub">{c.pedidos} pedido{c.pedidos !== 1 ? 's' : ''}</span>
-                      <span className="ranking-value">{currency}{fmt(c.total)}</span>
+                      <span className="ranking-value">$ {fmt(c.total)}</span>
                     </div>
                   </li>
                 ))}
@@ -244,7 +242,7 @@ export default function Dashboard() {
           <span className="uv-producto">{metrics.ultimaVenta.producto.split('(')[0].trim()}</span>
           <span className="uv-dot" />
           <span className="uv-fecha">{metrics.ultimaVenta.fecha}{metrics.ultimaVenta.hora ? ` · ${metrics.ultimaVenta.hora}` : ''}</span>
-          <span className="uv-monto">{currency}{fmt(metrics.ultimaVenta.monto)}</span>
+          <span className="uv-monto">$ {fmt(metrics.ultimaVenta.monto)}</span>
         </div>
       )}
 
@@ -309,7 +307,7 @@ export default function Dashboard() {
                         <td style={{ padding: '0.65rem 0.75rem', color: 'var(--text-primary)', fontWeight: 500, borderBottom: '1px solid rgba(255,255,255,0.03)' }}>{c.nombre || '—'}</td>
                         <td style={{ padding: '0.65rem 0.75rem', color: 'var(--text-muted)', fontSize: '0.75rem', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>{c.email || '—'}</td>
                         <td style={{ padding: '0.65rem 0.75rem', fontWeight: 700, color: 'var(--accent-primary)', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>{c.pedidos}</td>
-                        <td style={{ padding: '0.65rem 0.75rem', color: 'var(--text-secondary)', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>{currency}{fmt(c.total)}</td>
+                        <td style={{ padding: '0.65rem 0.75rem', color: 'var(--text-secondary)', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>$ {fmt(c.total)}</td>
                       </tr>
                     ))}
                   </tbody>

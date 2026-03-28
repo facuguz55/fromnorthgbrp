@@ -54,16 +54,6 @@
   gap: 0.2rem;
 }
 
-.metric-currency {
-  font-size: 0.58rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  letter-spacing: 0.08em;
-  opacity: 0.65;
-  line-height: 1;
-  margin-bottom: -0.05rem;
-}
-
 .metric-value {
   font-size: 1.65rem;
   font-weight: 800;
