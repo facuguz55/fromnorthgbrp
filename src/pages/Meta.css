@@ -90,8 +90,12 @@
   transition: background 0.15s;
   white-space: nowrap;
 }
-.meta-notif-test-btn:hover {
+.meta-notif-test-btn:hover:not(:disabled) {
   background: rgba(245, 158, 11, 0.16);
+}
+.meta-notif-test-btn.counting {
+  opacity: 0.75;
+  cursor: default;
 }
 
 /* ── Date selector ───────────────────────────────────────── */

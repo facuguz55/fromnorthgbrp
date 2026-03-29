@@ -60,6 +60,36 @@ function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; s
 
 type CampaignRow = MetaCampaign & { insight: MetaInsight | null };
 
+function TestNotifButton({ onFire }: { onFire: () => void }) {
+  const [countdown, setCountdown] = useState<number | null>(null);
+
+  const handleClick = () => {
+    if (countdown !== null) return;
+    setCountdown(3);
+    let t = 3;
+    const iv = setInterval(() => {
+      t--;
+      if (t <= 0) {
+        clearInterval(iv);
+        setCountdown(null);
+        onFire();
+      } else {
+        setCountdown(t);
+      }
+    }, 1000);
+  };
+
+  return (
+    <button
+      className={`meta-notif-test-btn ${countdown !== null ? 'counting' : ''}`}
+      onClick={handleClick}
+      disabled={countdown !== null}
+    >
+      🔔 {countdown !== null ? `Enviando en ${countdown}s…` : 'Test notif'}
+    </button>
+  );
+}
+
 export default function Meta() {
   const [campaigns,   setCampaigns]   = useState<MetaCampaign[]>([]);
   const [insights,    setInsights]    = useState<MetaInsight[]>([]);
@@ -310,18 +340,12 @@ export default function Meta() {
             ))}
           </div>
           {/* ── BOTÓN TEMPORAL DE PRUEBA ── */}
-          <button
-            className="meta-notif-test-btn"
-            onClick={() => sendNotifications(alerts.length > 0 ? alerts : [{
-              level: 'campaign', id: 'test', name: 'Campaña Verano 2025',
-              type: 'low_roas', severity: 'critical',
-              message: 'ROAS crítico: 0.8x — gastás más de lo que generás',
-              value: 0.8,
-            }])}
-            title={notifPermission !== 'granted' ? 'Permiso de notificaciones no concedido' : 'Enviar notificación de prueba'}
-          >
-            🔔 Test notif
-          </button>
+          <TestNotifButton onFire={() => sendNotifications(alerts.length > 0 ? alerts : [{
+            level: 'campaign', id: 'test', name: 'Campaña Verano 2025',
+            type: 'low_roas', severity: 'critical',
+            message: 'ROAS crítico: 0.8x — gastás más de lo que generás',
+            value: 0.8,
+          }])} />
           <button className="btn-secondary refresh-btn" onClick={() => loadData(datePreset, activeAccountKey, true)} disabled={loading}>
             <RefreshCw size={15} className={loading ? 'spinning' : ''} />
             {loading ? 'Cargando...' : 'Actualizar'}
