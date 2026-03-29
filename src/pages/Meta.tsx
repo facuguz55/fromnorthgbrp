@@ -60,41 +60,40 @@ function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; s
 
 type CampaignRow = MetaCampaign & { insight: MetaInsight | null };
 
-function TestNotifButton({ onFire }: { onFire: () => void }) {
+function TestNotifButton({ buildNotif }: {
+  buildNotif: () => { title: string; body: string } | null;
+}) {
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [status, setStatus] = useState<'idle' | 'blocked'>('idle');
+  const [status, setStatus]       = useState<'idle' | 'blocked'>('idle');
 
   const handleClick = async () => {
     if (countdown !== null) return;
 
-    if (typeof Notification === 'undefined') {
-      setStatus('blocked');
-      return;
-    }
+    if (typeof Notification === 'undefined') { setStatus('blocked'); return; }
 
-    let permission = Notification.permission;
-    if (permission === 'default') {
-      permission = await Notification.requestPermission();
-    }
+    let perm = Notification.permission;
+    if (perm === 'default') perm = await Notification.requestPermission();
+    if (perm !== 'granted') { setStatus('blocked'); return; }
 
-    console.log('[TestNotif] permission:', permission);
-
-    if (permission !== 'granted') {
-      setStatus('blocked');
-      return;
-    }
+    // Construye el contenido AHORA (dentro del gesto del usuario)
+    const payload = buildNotif();
+    if (!payload) return;
 
     setStatus('idle');
     setCountdown(3);
+
+    // Cuenta regresiva visual
     let t = 3;
     const iv = setInterval(() => {
       t--;
-      if (t <= 0) {
-        clearInterval(iv);
-        setCountdown(null);
-        onFire();
-      } else {
-        setCountdown(t);
+      if (t > 0) { setCountdown(t); return; }
+      clearInterval(iv);
+      setCountdown(null);
+      // Lanza la notificación ya preparada
+      try {
+        new Notification(payload.title, { body: payload.body, silent: false });
+      } catch (e) {
+        console.error('[TestNotif] error al crear notificación:', e);
       }
     }, 1000);
   };
@@ -102,7 +101,7 @@ function TestNotifButton({ onFire }: { onFire: () => void }) {
   if (status === 'blocked') {
     return (
       <span className="meta-notif-blocked">
-        🔕 Notificaciones bloqueadas — habilitálas en la config del navegador
+        🔕 Bloqueadas — habilitálas en Configuración del navegador
       </span>
     );
   }
@@ -298,26 +297,26 @@ export default function Meta() {
     Notification.requestPermission();
   }, []);
 
-  const sendNotifications = (alertList: MetaAlert[], acctKey: MetaAccountKey = activeAccountKey) => {
-    console.log('[sendNotifications] permission:', typeof Notification !== 'undefined' ? Notification.permission : 'unsupported', '| alerts:', alertList.length);
-    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-    if (alertList.length === 0) return;
-
+  const buildNotifPayload = (alertList: MetaAlert[], acctKey: MetaAccountKey = activeAccountKey) => {
+    if (alertList.length === 0) return null;
     const accountLabel = META_ACCOUNTS.find(a => a.key === acctKey)?.label ?? 'Meta Ads';
     const crits = alertList.filter(a => a.severity === 'critical');
     const warns = alertList.filter(a => a.severity === 'warning');
     const top   = crits[0] ?? warns[0];
-
     const title = crits.length > 0
       ? `⚠️ Meta Ads · ${accountLabel} — ${crits.length} crítica${crits.length !== 1 ? 's' : ''}`
       : `Meta Ads · ${accountLabel} — ${warns.length} advertencia${warns.length !== 1 ? 's' : ''}`;
-
     const body = `${top.name}: ${top.message}`
       + (alertList.length > 1 ? `\n+${alertList.length - 1} alerta${alertList.length - 1 !== 1 ? 's' : ''} más` : '');
+    return { title, body };
+  };
 
+  const sendNotifications = (alertList: MetaAlert[], acctKey: MetaAccountKey = activeAccountKey) => {
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    const payload = buildNotifPayload(alertList, acctKey);
+    if (!payload) return;
     try {
-      new Notification(title, { body, icon: '/favicon.ico' });
-      console.log('[sendNotifications] enviada:', title);
+      new Notification(payload.title, { body: payload.body });
     } catch (e) {
       console.error('[sendNotifications] error:', e);
     }
@@ -371,12 +370,15 @@ export default function Meta() {
             ))}
           </div>
           {/* ── BOTÓN TEMPORAL DE PRUEBA ── */}
-          <TestNotifButton onFire={() => sendNotifications(alerts.length > 0 ? alerts : [{
-            level: 'campaign', id: 'test', name: 'Campaña Verano 2025',
-            type: 'low_roas', severity: 'critical',
-            message: 'ROAS crítico: 0.8x — gastás más de lo que generás',
-            value: 0.8,
-          }])} />
+          <TestNotifButton buildNotif={() => {
+            const list = alerts.length > 0 ? alerts : [{
+              level: 'campaign' as const, id: 'test', name: 'Campaña Verano 2025',
+              type: 'low_roas' as const, severity: 'critical' as const,
+              message: 'ROAS crítico: 0.8x — gastás más de lo que generás',
+              value: 0.8,
+            }];
+            return buildNotifPayload(list);
+          }} />
           <button className="btn-secondary refresh-btn" onClick={() => loadData(datePreset, activeAccountKey, true)} disabled={loading}>
             <RefreshCw size={15} className={loading ? 'spinning' : ''} />
             {loading ? 'Cargando...' : 'Actualizar'}
