@@ -15,7 +15,7 @@ import {
   generateMetaAlerts,
   computeMetaSummary,
 } from '../services/metaAdsService';
-import type { MetaCampaign, MetaInsight, DatePreset } from '../services/metaAdsService';
+import type { MetaCampaign, MetaInsight, MetaAlert, DatePreset } from '../services/metaAdsService';
 import MetricCard from '../components/MetricCard';
 import './Meta.css';
 
@@ -232,6 +232,43 @@ export default function Meta() {
     setMinSpend(''); setMaxFreq(''); setOnlyAlerts(false);
   };
 
+  // ── Notificaciones ────────────────────────────────────────────────────────────
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
+    typeof Notification !== 'undefined' ? Notification.permission : 'default',
+  );
+
+  // Pedir permiso al montar
+  useEffect(() => {
+    if (typeof Notification === 'undefined' || Notification.permission !== 'default') return;
+    Notification.requestPermission().then(p => setNotifPermission(p));
+  }, []);
+
+  const sendNotifications = (alertList: MetaAlert[], acctKey: MetaAccountKey = activeAccountKey) => {
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    if (alertList.length === 0) return;
+
+    const accountLabel = META_ACCOUNTS.find(a => a.key === acctKey)?.label ?? 'Meta Ads';
+    const crits = alertList.filter(a => a.severity === 'critical');
+    const warns = alertList.filter(a => a.severity === 'warning');
+    const top   = crits[0] ?? warns[0];
+
+    const title = crits.length > 0
+      ? `⚠️ Meta Ads · ${accountLabel} — ${crits.length} crítica${crits.length !== 1 ? 's' : ''}`
+      : `Meta Ads · ${accountLabel} — ${warns.length} advertencia${warns.length !== 1 ? 's' : ''}`;
+
+    const body = `${top.name}: ${top.message}`
+      + (alertList.length > 1 ? `\n+${alertList.length - 1} alerta${alertList.length - 1 !== 1 ? 's' : ''} más` : '');
+
+    new Notification(title, { body, icon: '/favicon.ico' });
+  };
+
+  // Auto-notificar en cada recarga (no en la primera carga inicial)
+  const isFirstLoad = useRef(true);
+  useEffect(() => {
+    if (isFirstLoad.current) { isFirstLoad.current = false; return; }
+    sendNotifications(alerts, activeAccountKey);
+  }, [alerts]);
+
   return (
     <div className="meta-page fade-in">
 
@@ -272,6 +309,19 @@ export default function Meta() {
               </button>
             ))}
           </div>
+          {/* ── BOTÓN TEMPORAL DE PRUEBA ── */}
+          <button
+            className="meta-notif-test-btn"
+            onClick={() => sendNotifications(alerts.length > 0 ? alerts : [{
+              level: 'campaign', id: 'test', name: 'Campaña Verano 2025',
+              type: 'low_roas', severity: 'critical',
+              message: 'ROAS crítico: 0.8x — gastás más de lo que generás',
+              value: 0.8,
+            }])}
+            title={notifPermission !== 'granted' ? 'Permiso de notificaciones no concedido' : 'Enviar notificación de prueba'}
+          >
+            🔔 Test notif
+          </button>
           <button className="btn-secondary refresh-btn" onClick={() => loadData(datePreset, activeAccountKey, true)} disabled={loading}>
             <RefreshCw size={15} className={loading ? 'spinning' : ''} />
             {loading ? 'Cargando...' : 'Actualizar'}
