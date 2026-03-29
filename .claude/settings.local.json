@@ -10,7 +10,8 @@
       "Bash(npm run:*)",
       "Bash(git:*)",
       "WebFetch(domain:graph.facebook.com)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(find /c/Users/facui/.gemini/antigravity/scratch/saas-dashboard -type f \\\\\\(-name *settings* -o -name *config* \\\\\\) -not -path */node_modules/*)"
     ]
   }
 }

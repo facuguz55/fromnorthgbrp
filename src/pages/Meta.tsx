@@ -1,10 +1,14 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   RefreshCw, AlertTriangle, AlertCircle, TrendingUp,
   MousePointerClick, Eye, DollarSign, Users, Megaphone, CheckCircle2,
-  Search, ArrowUpDown, ArrowUp, ArrowDown,
+  Search, ArrowUpDown, ArrowUp, ArrowDown, ArrowLeftRight,
 } from 'lucide-react';
-import { getSettings } from '../services/dataService';
+import {
+  getSettings,
+  META_ACCOUNTS, getActiveMetaAccount, setActiveMetaAccount,
+} from '../services/dataService';
+import type { MetaAccountKey } from '../services/dataService';
 import {
   fetchMetaCampaigns,
   fetchMetaInsights,
@@ -76,13 +80,18 @@ export default function Meta() {
   const [sortKey, setSortKey] = useState<SortKey>('spend');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
-  const loadData = async (preset: DatePreset = datePreset, force = false) => {
+  const [activeAccountKey, setActiveAccountKey] = useState<MetaAccountKey>(getActiveMetaAccount);
+  const datePresetRef = useRef(datePreset);
+  useEffect(() => { datePresetRef.current = datePreset; }, [datePreset]);
+
+  const loadData = async (preset: DatePreset = datePreset, acctKey: MetaAccountKey = activeAccountKey, force = false) => {
     if (!force && !loading) setLoading(true);
     setError(null);
     try {
       const settings  = getSettings();
       const token     = settings?.metaAccessToken?.trim() ?? '';
-      const accountId = settings?.metaAdAccountId?.trim() ?? '';
+      const acct      = META_ACCOUNTS.find(a => a.key === acctKey)!;
+      const accountId = (settings[acct.settingsKey] as string)?.trim() ?? '';
       if (!token || !accountId) {
         setError('Configurá tu Access Token y Ad Account ID en Configuración → Meta Ads.');
         setLoading(false);
@@ -102,11 +111,29 @@ export default function Meta() {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(datePreset, getActiveMetaAccount()); }, []);
+
+  // Escucha cambios de cuenta disparados desde el Sidebar
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const key = (e as CustomEvent<MetaAccountKey>).detail;
+      setActiveAccountKey(key);
+      loadData(datePresetRef.current, key, true);
+    };
+    window.addEventListener('meta-account-changed', handler);
+    return () => window.removeEventListener('meta-account-changed', handler);
+  }, []);
 
   const handleDateChange = (preset: DatePreset) => {
     setDatePreset(preset);
-    loadData(preset, true);
+    loadData(preset, activeAccountKey, true);
+  };
+
+  const handleAccountSwitch = () => {
+    const next = META_ACCOUNTS.find(a => a.key !== activeAccountKey)!;
+    setActiveMetaAccount(next.key);
+    setActiveAccountKey(next.key);
+    loadData(datePreset, next.key, true);
   };
 
   const handleSort = (key: SortKey) => {
@@ -211,10 +238,21 @@ export default function Meta() {
       {/* ── Header ── */}
       <header className="meta-header">
         <div>
-          <h1 className="meta-title">
-            <Megaphone size={22} className="meta-title-icon" />
-            Meta Ads
-          </h1>
+          <div className="meta-title-row">
+            <h1 className="meta-title">
+              <Megaphone size={22} className="meta-title-icon" />
+              Meta Ads
+            </h1>
+            <button
+              className="meta-account-switcher"
+              onClick={handleAccountSwitch}
+              title={`Cambiar a ${META_ACCOUNTS.find(a => a.key !== activeAccountKey)?.label}`}
+              disabled={loading}
+            >
+              {META_ACCOUNTS.find(a => a.key === activeAccountKey)?.label}
+              <ArrowLeftRight size={12} />
+            </button>
+          </div>
           {lastUpdated && (
             <span className="text-muted meta-meta">
               Actualizado: {lastUpdated.toLocaleTimeString('es-AR')}
@@ -234,7 +272,7 @@ export default function Meta() {
               </button>
             ))}
           </div>
-          <button className="btn-secondary refresh-btn" onClick={() => loadData(datePreset, true)} disabled={loading}>
+          <button className="btn-secondary refresh-btn" onClick={() => loadData(datePreset, activeAccountKey, true)} disabled={loading}>
             <RefreshCw size={15} className={loading ? 'spinning' : ''} />
             {loading ? 'Cargando...' : 'Actualizar'}
           </button>

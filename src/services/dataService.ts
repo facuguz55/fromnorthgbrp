@@ -4,6 +4,7 @@ export interface DashboardSettings {
   googleSheetsUrl: string;
   metaAccessToken: string;
   metaAdAccountId: string;
+  metaAdAccountId2: string;
   displayName: string;
   accentColor: string;
   compactMode: boolean;
@@ -16,8 +17,9 @@ const DEFAULT_SETTINGS: DashboardSettings = {
   tiendanubeToken:   '24cddf241e9dd8128a078572aeb7cc3da5a45f06',
   tiendanubeStoreId: '3349973',
   googleSheetsUrl:   'https://docs.google.com/spreadsheets/d/1AFc5ofUSl_DwaYPC2idAY2uHv1aPWx8QhcgiPeJyeP0/edit?gid=1642608634#gid=1642608634',
-  metaAccessToken:   'EAASjWUjyKg8BRBvqu35F8PFG4hLS2ZBIScBCft3z7g6X0coSNJInWPx6ocFhuQSJXF57TTIf8L9glZCZBHAprikgFhOwhS8FeDxSwkRMSarWE29McGAjVPwFYPIAfcZBaBUq2bEy7uX0ZC2Dw9Pb7icxZBdm4DGMcabpz2L21U7jZBYlJM5WxXjZBYlChgZBKZApYxIgZDZD',
+  metaAccessToken:   'EAASjWUjyKg8BRKJfCaos5WiSfXCYgWKXdg9k87639eFMswozkMjACeViWyqlWJ4HlCGQogOwZAshgyDyHEw7Rkjm3CHsAOY1aIZBCxKo7CAjQjO9akrjEECdfISW76h3ZAiDYOMtmAtnmm01yZBQyBwYEDtYwRRMZA6HrZA5rRrjMCxr4B5hCFFIv1DHw7cZCIt8QZDZD',
   metaAdAccountId:   '1110831870748256',
+  metaAdAccountId2:  '1271182561590203',
   displayName:       '',
   accentColor:       '#06b6d4',
   compactMode:       false,
@@ -32,6 +34,7 @@ const CREDENTIAL_KEYS: (keyof DashboardSettings)[] = [
   'googleSheetsUrl',
   'metaAccessToken',
   'metaAdAccountId',
+  'metaAdAccountId2',
 ];
 
 export function getSettings(): DashboardSettings {
@@ -48,6 +51,25 @@ export function getSettings(): DashboardSettings {
 }
 
 export { DEFAULT_SETTINGS };
+
+// ── Multi-account Meta Ads ─────────────────────────────────────────────────────
+
+export const META_ACCOUNTS = [
+  { key: 'fromnorth' as const, label: 'FROMNORTH', settingsKey: 'metaAdAccountId'  as keyof DashboardSettings },
+  { key: 'juan'      as const, label: 'JUAN',      settingsKey: 'metaAdAccountId2' as keyof DashboardSettings },
+];
+export type MetaAccountKey = 'fromnorth' | 'juan';
+
+const META_ACCOUNT_STORAGE_KEY = 'meta_active_account';
+
+export function getActiveMetaAccount(): MetaAccountKey {
+  return localStorage.getItem(META_ACCOUNT_STORAGE_KEY) === 'juan' ? 'juan' : 'fromnorth';
+}
+
+export function setActiveMetaAccount(key: MetaAccountKey): void {
+  localStorage.setItem(META_ACCOUNT_STORAGE_KEY, key);
+  window.dispatchEvent(new CustomEvent('meta-account-changed', { detail: key }));
+}
 
 /** CSV parser que maneja campos entre comillas con comas internas */
 export function parseCsvLine(line: string): string[] {

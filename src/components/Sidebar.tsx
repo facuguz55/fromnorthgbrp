@@ -1,8 +1,31 @@
-import { NavLink } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Settings, PieChart, BarChart2, Bell, Lock, CalendarDays, Dices, Inbox, Store, Megaphone } from 'lucide-react';
+import {
+  META_ACCOUNTS, getActiveMetaAccount, setActiveMetaAccount,
+} from '../services/dataService';
+import type { MetaAccountKey } from '../services/dataService';
 import './Sidebar.css';
 
 export default function Sidebar() {
+  const navigate = useNavigate();
+  const [activeAcct, setActiveAcct] = useState<MetaAccountKey>(getActiveMetaAccount);
+
+  // Sincroniza cuando Meta.tsx cambia la cuenta desde su header
+  useEffect(() => {
+    const handler = (e: Event) => {
+      setActiveAcct((e as CustomEvent<MetaAccountKey>).detail);
+    };
+    window.addEventListener('meta-account-changed', handler);
+    return () => window.removeEventListener('meta-account-changed', handler);
+  }, []);
+
+  const handleMetaAccount = (key: MetaAccountKey) => {
+    setActiveMetaAccount(key);
+    setActiveAcct(key);
+    navigate('/meta');
+  };
+
   return (
     <aside className="sidebar glass-panel">
       <div className="sidebar-header">
@@ -51,6 +74,19 @@ export default function Sidebar() {
               <Megaphone size={20} />
               <span>Meta Ads</span>
             </NavLink>
+            <ul className="nav-sub-list">
+              {META_ACCOUNTS.map(acct => (
+                <li key={acct.key}>
+                  <button
+                    className={`nav-sub-link ${activeAcct === acct.key ? 'active' : ''}`}
+                    onClick={() => handleMetaAccount(acct.key)}
+                  >
+                    <span className="nav-sub-dot" />
+                    {acct.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
           </li>
 
           {/* ── Gestión ── */}
