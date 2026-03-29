@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Settings, PieChart, BarChart2, Bell, Lock, CalendarDays, Dices, Inbox, Store, Megaphone, Instagram } from 'lucide-react';
+import { LayoutDashboard, Settings, PieChart, BarChart2, Bell, Lock, CalendarDays, Dices, Inbox, Store, Megaphone } from 'lucide-react';
 import {
   META_ACCOUNTS, getActiveMetaAccount, setActiveMetaAccount,
 } from '../services/dataService';
@@ -69,12 +69,6 @@ export default function Sidebar() {
               <Store size={20} />
               <span className="nav-label-full">Gestión de Tienda</span>
               <span className="nav-label-short">Gestión</span>
-            </NavLink>
-          </li>
-          <li className="nav-item">
-            <NavLink to="/instagram" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-              <Instagram size={20} />
-              <span>Instagram</span>
             </NavLink>
           </li>
           <li className="nav-item">
