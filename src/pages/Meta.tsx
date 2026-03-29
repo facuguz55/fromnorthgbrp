@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   RefreshCw, AlertTriangle, AlertCircle, TrendingUp,
   MousePointerClick, Eye, DollarSign, Users, Megaphone, CheckCircle2,
-  Search, ArrowUpDown, ArrowUp, ArrowDown, ArrowLeftRight,
+  Search, ArrowUpDown, ArrowUp, ArrowDown, ArrowLeftRight, X,
 } from 'lucide-react';
 import {
   getSettings,
@@ -60,51 +60,55 @@ function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; s
 
 type CampaignRow = MetaCampaign & { insight: MetaInsight | null };
 
-function TestNotifButton({ buildNotif }: {
-  buildNotif: () => { title: string; body: string } | null;
-}) {
+// ── Toast system ──────────────────────────────────────────────────────────────
+
+interface ToastItem {
+  id: number;
+  title: string;
+  body: string;
+  severity: 'critical' | 'warning';
+  exiting: boolean;
+}
+
+function ToastStack({ toasts, onDismiss }: { toasts: ToastItem[]; onDismiss: (id: number) => void }) {
+  return (
+    <div className="meta-toast-stack">
+      {toasts.map(t => (
+        <div key={t.id} className={`meta-toast ${t.severity} ${t.exiting ? 'exiting' : ''}`}>
+          <div className="meta-toast-icon">
+            {t.severity === 'critical'
+              ? <AlertCircle size={18} />
+              : <AlertTriangle size={18} />}
+          </div>
+          <div className="meta-toast-content">
+            <p className="meta-toast-title">{t.title}</p>
+            <p className="meta-toast-body">{t.body}</p>
+          </div>
+          <button className="meta-toast-close" onClick={() => onDismiss(t.id)}>
+            <X size={14} />
+          </button>
+          <div className="meta-toast-bar" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TestNotifButton({ onFire }: { onFire: () => void }) {
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [status, setStatus]       = useState<'idle' | 'blocked'>('idle');
 
-  const handleClick = async () => {
+  const handleClick = () => {
     if (countdown !== null) return;
-
-    if (typeof Notification === 'undefined') { setStatus('blocked'); return; }
-
-    let perm = Notification.permission;
-    if (perm === 'default') perm = await Notification.requestPermission();
-    if (perm !== 'granted') { setStatus('blocked'); return; }
-
-    // Construye el contenido AHORA (dentro del gesto del usuario)
-    const payload = buildNotif();
-    if (!payload) return;
-
-    setStatus('idle');
     setCountdown(3);
-
-    // Cuenta regresiva visual
     let t = 3;
     const iv = setInterval(() => {
       t--;
       if (t > 0) { setCountdown(t); return; }
       clearInterval(iv);
       setCountdown(null);
-      // Lanza la notificación ya preparada
-      try {
-        new Notification(payload.title, { body: payload.body, silent: false });
-      } catch (e) {
-        console.error('[TestNotif] error al crear notificación:', e);
-      }
+      onFire();
     }, 1000);
   };
-
-  if (status === 'blocked') {
-    return (
-      <span className="meta-notif-blocked">
-        🔕 Bloqueadas — habilitálas en Configuración del navegador
-      </span>
-    );
-  }
 
   return (
     <button
@@ -297,28 +301,45 @@ export default function Meta() {
     Notification.requestPermission();
   }, []);
 
+  // ── Toast in-app ──────────────────────────────────────────────────────────────
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const toastCounter = useRef(0);
+
+  const dismissToast = useCallback((id: number) => {
+    setToasts(prev => prev.map(t => t.id === id ? { ...t, exiting: true } : t));
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 400);
+  }, []);
+
+  const showToast = useCallback((title: string, body: string, severity: 'critical' | 'warning') => {
+    const id = ++toastCounter.current;
+    setToasts(prev => [...prev, { id, title, body, severity, exiting: false }]);
+    setTimeout(() => dismissToast(id), 6000);
+  }, [dismissToast]);
+
+  // ── Notificaciones nativas + toast ────────────────────────────────────────────
   const buildNotifPayload = (alertList: MetaAlert[], acctKey: MetaAccountKey = activeAccountKey) => {
     if (alertList.length === 0) return null;
     const accountLabel = META_ACCOUNTS.find(a => a.key === acctKey)?.label ?? 'Meta Ads';
     const crits = alertList.filter(a => a.severity === 'critical');
     const warns = alertList.filter(a => a.severity === 'warning');
     const top   = crits[0] ?? warns[0];
+    const severity: 'critical' | 'warning' = crits.length > 0 ? 'critical' : 'warning';
     const title = crits.length > 0
       ? `⚠️ Meta Ads · ${accountLabel} — ${crits.length} crítica${crits.length !== 1 ? 's' : ''}`
       : `Meta Ads · ${accountLabel} — ${warns.length} advertencia${warns.length !== 1 ? 's' : ''}`;
     const body = `${top.name}: ${top.message}`
       + (alertList.length > 1 ? `\n+${alertList.length - 1} alerta${alertList.length - 1 !== 1 ? 's' : ''} más` : '');
-    return { title, body };
+    return { title, body, severity };
   };
 
   const sendNotifications = (alertList: MetaAlert[], acctKey: MetaAccountKey = activeAccountKey) => {
-    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
     const payload = buildNotifPayload(alertList, acctKey);
     if (!payload) return;
-    try {
-      new Notification(payload.title, { body: payload.body });
-    } catch (e) {
-      console.error('[sendNotifications] error:', e);
+    // Toast in-app (siempre)
+    showToast(payload.title, payload.body, payload.severity);
+    // Notificación nativa (si hay permiso)
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      try { new Notification(payload.title, { body: payload.body }); } catch (_) {}
     }
   };
 
@@ -370,15 +391,14 @@ export default function Meta() {
             ))}
           </div>
           {/* ── BOTÓN TEMPORAL DE PRUEBA ── */}
-          <TestNotifButton buildNotif={() => {
-            const list = alerts.length > 0 ? alerts : [{
+          <TestNotifButton onFire={() => sendNotifications(
+            alerts.length > 0 ? alerts : [{
               level: 'campaign' as const, id: 'test', name: 'Campaña Verano 2025',
               type: 'low_roas' as const, severity: 'critical' as const,
               message: 'ROAS crítico: 0.8x — gastás más de lo que generás',
               value: 0.8,
-            }];
-            return buildNotifPayload(list);
-          }} />
+            }],
+          )} />
           <button className="btn-secondary refresh-btn" onClick={() => loadData(datePreset, activeAccountKey, true)} disabled={loading}>
             <RefreshCw size={15} className={loading ? 'spinning' : ''} />
             {loading ? 'Cargando...' : 'Actualizar'}
