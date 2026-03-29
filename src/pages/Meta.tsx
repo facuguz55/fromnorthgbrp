@@ -263,14 +263,11 @@ export default function Meta() {
   };
 
   // ── Notificaciones ────────────────────────────────────────────────────────────
-  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
-    typeof Notification !== 'undefined' ? Notification.permission : 'default',
-  );
 
   // Pedir permiso al montar
   useEffect(() => {
     if (typeof Notification === 'undefined' || Notification.permission !== 'default') return;
-    Notification.requestPermission().then(p => setNotifPermission(p));
+    Notification.requestPermission();
   }, []);
 
   const sendNotifications = (alertList: MetaAlert[], acctKey: MetaAccountKey = activeAccountKey) => {
