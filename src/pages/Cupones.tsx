@@ -8,10 +8,9 @@ import './Cupones.css';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const WEBHOOK_GET    = 'https://devwebhookn8n.santafeia.shop/webhook/cupones-web-f';
-const WEBHOOK_CREATE = 'https://devwebhookn8n.santafeia.shop/webhook/crear-cupon-web-f';
-const TN_BASE        = 'https://api.tiendanube.com/v1';
-const POLL_INTERVAL  = 60_000; // 60 segundos
+const WEBHOOK_GET   = 'https://devwebhookn8n.santafeia.shop/webhook/cupones-web-f';
+const TN_BASE       = 'https://api.tiendanube.com/v1';
+const POLL_INTERVAL = 60_000; // 60 segundos
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -246,8 +245,15 @@ export default function Cupones() {
   };
 
   const handleCreate = async () => {
-    if (!form.code.trim() || !form.value.trim()) {
+    if (!form.code.trim() || (form.type !== 'shipping' && !form.value.trim())) {
       showToast('err', 'El código y el valor son obligatorios.');
+      return;
+    }
+    const settings = getSettings();
+    const storeId  = settings.tiendanubeStoreId.trim();
+    const token    = settings.tiendanubeToken.trim();
+    if (!storeId || !token) {
+      showToast('err', 'Configurá el Store ID y Token en Ajustes.');
       return;
     }
     setCreating(true);
@@ -255,17 +261,35 @@ export default function Cupones() {
       const body: Record<string, unknown> = {
         code:  form.code.trim().toUpperCase(),
         type:  form.type,
-        value: parseFloat(form.value),
+        value: form.type !== 'shipping' ? parseFloat(form.value) : 0,
       };
       if (form.min_price)   body.min_price   = parseFloat(form.min_price);
       if (form.max_uses)    body.max_uses    = parseInt(form.max_uses);
       if (form.valid_until) body.valid_until = form.valid_until;
 
-      const res = await fetch(WEBHOOK_CREATE, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(body),
-      });
+      const tnHeaders: Record<string, string> = {
+        Authentication: `bearer ${token}`,
+        'User-Agent':   'NovaDashboard (contact@fromnorthgb.com)',
+        'Content-Type': 'application/json',
+      };
+
+      // Crear directo en TiendaNube — así aparece inmediatamente al refrescar
+      let res: Response;
+      try {
+        res = await fetch(`${TN_BASE}/${storeId}/coupons`, {
+          method:  'POST',
+          headers: tnHeaders,
+          body:    JSON.stringify(body),
+        });
+      } catch {
+        // CORS fallback → proxy Vercel
+        const qs = new URLSearchParams({ storeId, token, path: 'coupons' });
+        res = await fetch(`/api/tiendanube?${qs}`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(body),
+        });
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       showToast('ok', `Cupón "${body.code}" creado correctamente.`);
       setForm(FORM_EMPTY);
