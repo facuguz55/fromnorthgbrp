@@ -1,4 +1,4 @@
-export const config = { runtime: 'edge' };
+export const config = { maxDuration: 60 };
 
 const TN_TOKEN = '24cddf241e9dd8128a078572aeb7cc3da5a45f06';
 const TN_STORE = '3349973';
@@ -22,36 +22,46 @@ export default async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
 
   const since = new Date(Date.now() - DAYS_BACK * 86_400_000).toISOString();
-  const allOrders: any[] = [];
 
-  for (let page = 1; page <= 5; page++) {
-    const qs = new URLSearchParams({ per_page: '200', page: String(page), created_at_min: since });
-    const res = await fetch(`${TN_BASE}/orders?${qs}`, { headers: TN_HDR });
-    if (!res.ok) break;
-    const data = await res.json() as any[];
-    if (!Array.isArray(data) || data.length === 0) break;
+  const simplify = (o: any) => ({
+    id: o.id, number: o.number, status: o.status,
+    payment_status: o.payment_status, total: o.total,
+    subtotal: o.subtotal, total_shipping: o.total_shipping,
+    discount: o.discount, created_at: o.created_at,
+    customer: o.customer
+      ? { id: o.customer.id, name: o.customer.name, email: o.customer.email }
+      : null,
+    products: (o.products ?? []).map((p: any) => ({
+      name: p.name, quantity: p.quantity, price: p.price, sku: p.sku ?? null,
+    })),
+    payment_details: o.payment_details
+      ? { method: o.payment_details.method, credit_card_company: o.payment_details.credit_card_company ?? null }
+      : null,
+    coupon: o.coupon ?? null,
+  });
 
-    for (const o of data) {
-      allOrders.push({
-        id: o.id, number: o.number, status: o.status,
-        payment_status: o.payment_status, total: o.total,
-        subtotal: o.subtotal, total_shipping: o.total_shipping,
-        discount: o.discount, created_at: o.created_at,
-        customer: o.customer
-          ? { id: o.customer.id, name: o.customer.name, email: o.customer.email }
-          : null,
-        products: (o.products ?? []).map((p: any) => ({
-          name: p.name, quantity: p.quantity, price: p.price, sku: p.sku ?? null,
-        })),
-        payment_details: o.payment_details
-          ? { method: o.payment_details.method, credit_card_company: o.payment_details.credit_card_company ?? null }
-          : null,
-        coupon: o.coupon ?? null,
-      });
-    }
+  // Fetch página 1 primero para saber si hay más
+  const qs1 = new URLSearchParams({ per_page: '200', page: '1', created_at_min: since });
+  const res1 = await fetch(`${TN_BASE}/orders?${qs1}`, { headers: TN_HDR });
+  if (!res1.ok) return new Response(JSON.stringify({ error: 'TiendaNube error', status: res1.status }), { status: 500 });
 
-    const hasMore = (res.headers.get('Link') ?? '').includes('rel="next"');
-    if (!hasMore) break;
+  const data1 = await res1.json() as any[];
+  const hasMore1 = (res1.headers.get('Link') ?? '').includes('rel="next"');
+
+  let allOrders = data1.map(simplify);
+
+  // Si hay más páginas, fetchearlas en paralelo
+  if (hasMore1) {
+    const pages = await Promise.all(
+      [2, 3, 4, 5].map(async page => {
+        const qs = new URLSearchParams({ per_page: '200', page: String(page), created_at_min: since });
+        const res = await fetch(`${TN_BASE}/orders?${qs}`, { headers: TN_HDR });
+        if (!res.ok) return [];
+        const data = await res.json() as any[];
+        return Array.isArray(data) ? data.map(simplify) : [];
+      })
+    );
+    allOrders = allOrders.concat(...pages);
   }
 
   const sbRes = await fetch(`${SB_URL}/rest/v1/tn_orders_cache`, {
