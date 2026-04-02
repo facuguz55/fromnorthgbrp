@@ -12,6 +12,13 @@ const SUPABASE_URL = 'https://tnmmbfcbviowhunnrzix.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRubW1iZmNidmlvd2h1bm5yeml4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyMTc4MzcsImV4cCI6MjA4OTc5MzgzN30.ZZD8evIrlfY_77-DEh47L-JJxFOxhH8L9xZ_NjHN6QU';
 const N8N_SEND = 'https://devwebhookn8n.santafeia.shop/webhook/responder-mail';
 
+const META_TOKEN = 'EAASjWUjyKg8BRKJfCaos5WiSfXCYgWKXdg9k87639eFMswozkMjACeViWyqlWJ4HlCGQogOwZAshgyDyHEw7Rkjm3CHsAOY1aIZBCxKo7CAjQjO9akrjEECdfISW76h3ZAiDYOMtmAtnmm01yZBQyBwYEDtYwRRMZA6HrZA5rRrjMCxr4B5hCFFIv1DHw7cZCIt8QZDZD';
+const META_ACCOUNTS: Record<string, string> = {
+  fromnorth: '1110831870748256',
+  juan:      '1271182561590203',
+};
+const GRAPH_API = 'https://graph.facebook.com/v19.0';
+
 const SYSTEM = `Sos el asistente IA del dashboard de FROMNORTH, una marca de indumentaria argentina.
 Tenés acceso completo al sistema y podés consultar, analizar y ejecutar cambios en tiempo real.
 
@@ -23,6 +30,7 @@ Tenés acceso completo al sistema y podés consultar, analizar y ejecutar cambio
 - Productos: stock, precios, más/menos vendidos
 - Órdenes: estado, pendientes, canceladas, pagadas
 - Emails: bandeja de entrada, categorías urgentes, consultas
+- **Meta Ads**: campañas, gasto, impresiones, clicks, CTR, ROAS, frecuencia, alertas — disponible para las cuentas FROMNORTH y JUAN
 
 ### Acciones directas
 - Cupones: crear con código, tipo (%, monto, envío gratis), valor, usos máximos, vencimiento
@@ -54,6 +62,7 @@ Si el usuario pide cambios, modificá el borrador y volvé a mostrar el preview 
 - Siempre incluí contexto comparativo cuando das métricas
 - Detectá anomalías aunque no te lo pidan
 - Números en formato legible: $1.200, no 1200.00
+- Para Meta Ads: cuando no se especifica cuenta, traé ambas (fromnorth y juan) y compará
 - Si los datos son insuficientes, decilo
 
 ## Estilo
@@ -163,17 +172,108 @@ const tools = [
       },
     },
   },
+  {
+    name: 'get_meta_insights',
+    description: 'Obtiene métricas de Meta Ads (Facebook/Instagram): gasto, impresiones, clicks, CTR, alcance, frecuencia, compras, ROAS. Usalo para cualquier consulta sobre campañas publicitarias.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        account: {
+          type: 'string',
+          enum: ['fromnorth', 'juan', 'ambas'],
+          description: 'Cuenta publicitaria. "fromnorth" = cuenta principal FROMNORTH, "juan" = cuenta JUAN, "ambas" = trae las dos',
+        },
+        date_preset: {
+          type: 'string',
+          enum: ['today', 'yesterday', 'last_7d', 'last_14d', 'last_30d', 'this_month', 'last_month'],
+          description: 'Período de tiempo (default: last_7d)',
+        },
+        level: {
+          type: 'string',
+          enum: ['campaign', 'adset', 'ad'],
+          description: 'Nivel de desglose (default: campaign)',
+        },
+      },
+    },
+  },
+  {
+    name: 'get_meta_campaigns',
+    description: 'Obtiene la lista de campañas de Meta Ads con su estado (activa, pausada) y presupuesto.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        account: {
+          type: 'string',
+          enum: ['fromnorth', 'juan', 'ambas'],
+          description: 'Cuenta publicitaria (default: ambas)',
+        },
+      },
+    },
+  },
 ];
+
+// ── Meta Ads helpers ──────────────────────────────────────────────────────────
+
+async function metaGet(path: string, params: Record<string, string> = {}) {
+  const qs = new URLSearchParams({ ...params, access_token: META_TOKEN });
+  const res = await fetch(`${GRAPH_API}${path}?${qs}`);
+  const json = await res.json() as any;
+  if (json.error) throw new Error(`Meta API: ${json.error.message} (code ${json.error.code})`);
+  return json;
+}
+
+function extractAction(actions: { action_type: string; value: string }[] | undefined, type: string): number {
+  return parseFloat(actions?.find(a => a.action_type === type)?.value ?? '0') || 0;
+}
+
+async function fetchMetaInsightsForAccount(accountId: string, datePreset: string, level: string) {
+  const accountFmt = `act_${accountId}`;
+  const result = await metaGet(`/${accountFmt}/insights`, {
+    fields: 'campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,impressions,clicks,ctr,spend,reach,frequency,actions,action_values',
+    date_preset: datePreset,
+    level,
+    effective_status: '["ACTIVE","PAUSED","ARCHIVED"]',
+    limit: '200',
+  });
+  return (result.data ?? []).map((r: any) => ({
+    name: r.campaign_name ?? r.adset_name ?? r.ad_name ?? '—',
+    impressions: parseInt(r.impressions ?? '0') || 0,
+    clicks: parseInt(r.clicks ?? '0') || 0,
+    ctr: parseFloat(r.ctr ?? '0') || 0,
+    spend: parseFloat(r.spend ?? '0') || 0,
+    reach: parseInt(r.reach ?? '0') || 0,
+    frequency: parseFloat(r.frequency ?? '0') || 0,
+    purchases: extractAction(r.actions, 'purchase'),
+    revenue: extractAction(r.action_values, 'purchase'),
+    roas: parseFloat(r.spend ?? '0') > 0
+      ? (extractAction(r.action_values, 'purchase') / parseFloat(r.spend ?? '1'))
+      : 0,
+  }));
+}
+
+async function fetchMetaCampaignsForAccount(accountId: string) {
+  const accountFmt = `act_${accountId}`;
+  const result = await metaGet(`/${accountFmt}/campaigns`, {
+    fields: 'id,name,status,objective,daily_budget,lifetime_budget',
+    effective_status: '["ACTIVE","PAUSED","ARCHIVED"]',
+    limit: '100',
+  });
+  return (result.data ?? []).map((c: any) => ({
+    id: c.id,
+    name: c.name,
+    status: c.status,
+    objective: c.objective,
+    daily_budget: c.daily_budget ? `$${(parseInt(c.daily_budget) / 100).toFixed(2)}` : null,
+    lifetime_budget: c.lifetime_budget ? `$${(parseInt(c.lifetime_budget) / 100).toFixed(2)}` : null,
+  }));
+}
+
+// ── TiendaNube helpers ────────────────────────────────────────────────────────
 
 function simplifyOrder(o: any) {
   return {
-    id: o.id,
-    number: o.number,
-    status: o.status,
-    payment_status: o.payment_status,
-    total: o.total,
-    discount: o.discount,
-    created_at: o.created_at,
+    id: o.id, number: o.number, status: o.status, payment_status: o.payment_status,
+    total: o.total, discount: o.discount, created_at: o.created_at,
     customer: o.customer ? { id: o.customer.id, name: o.customer.name, email: o.customer.email } : null,
     products: (o.products ?? []).map((p: any) => ({ name: p.name, quantity: p.quantity, price: p.price })),
     payment_method: o.payment_details?.method ?? null,
@@ -184,13 +284,9 @@ function simplifyOrder(o: any) {
 function simplifyProduct(p: any) {
   const name = p.name?.es ?? p.name?.en ?? Object.values(p.name ?? {})[0] ?? String(p.id);
   return {
-    id: p.id,
-    name,
+    id: p.id, name,
     variants: (p.variants ?? []).map((v: any) => ({
-      id: v.id,
-      sku: v.sku,
-      price: v.price,
-      stock: v.stock,
+      id: v.id, sku: v.sku, price: v.price, stock: v.stock,
       label: v.values?.map((val: any) => val.es ?? val.en ?? '').join(' / '),
     })),
   };
@@ -201,9 +297,12 @@ function tnFetch(path: string, params: Record<string, string> = {}) {
   return fetch(`${TN_BASE}/${path}${qs ? '?' + qs : ''}`, { headers: TN_HDR });
 }
 
+// ── Tool executor ─────────────────────────────────────────────────────────────
+
 async function executeTool(name: string, input: Record<string, any>): Promise<string> {
   try {
     switch (name) {
+
       case 'get_orders': {
         const p: Record<string, string> = { per_page: String(input.per_page ?? 50), page: String(input.page ?? 1) };
         if (input.payment_status) p.payment_status = input.payment_status;
@@ -238,10 +337,8 @@ async function executeTool(name: string, input: Record<string, any>): Promise<st
       }
 
       case 'get_coupons': {
-        const p: Record<string, string> = { per_page: String(input.per_page ?? 50) };
-        const res = await tnFetch('coupons', p);
-        const data = await res.json();
-        return JSON.stringify(data);
+        const res = await tnFetch('coupons', { per_page: String(input.per_page ?? 50) });
+        return JSON.stringify(await res.json());
       }
 
       case 'create_coupon': {
@@ -260,25 +357,16 @@ async function executeTool(name: string, input: Record<string, any>): Promise<st
       }
 
       case 'delete_coupon': {
-        const res = await fetch(`${TN_BASE}/coupons/${input.coupon_id}`, {
-          method: 'DELETE',
-          headers: TN_HDR,
-        });
+        const res = await fetch(`${TN_BASE}/coupons/${input.coupon_id}`, { method: 'DELETE', headers: TN_HDR });
         if (res.ok || res.status === 204) return `Cupón ${input.coupon_id} eliminado correctamente`;
-        const text = await res.text();
-        return `Error ${res.status}: ${text}`;
+        return `Error ${res.status}: ${await res.text()}`;
       }
 
       case 'send_email': {
         const res = await fetch(N8N_SEND, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            threadId: input.thread_id ?? null,
-            to: input.to,
-            asunto: input.subject,
-            mensaje: input.body,
-          }),
+          body: JSON.stringify({ threadId: input.thread_id ?? null, to: input.to, asunto: input.subject, mensaje: input.body }),
         });
         if (res.ok) return `Email enviado a ${input.to} — Asunto: "${input.subject}"`;
         return `Error enviando email: HTTP ${res.status}`;
@@ -288,11 +376,36 @@ async function executeTool(name: string, input: Record<string, any>): Promise<st
         let url = `${SUPABASE_URL}/rest/v1/mails?select=id,thread_id,de,nombre,asunto,fecha,leido,categoria,resumen&order=fecha.desc&limit=${Math.min(input.limit ?? 20, 60)}`;
         if (input.categoria) url += `&categoria=eq.${input.categoria}`;
         if (input.leido != null) url += `&leido=eq.${input.leido}`;
-        const res = await fetch(url, {
-          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-        });
-        const data = await res.json();
-        return JSON.stringify(data);
+        const res = await fetch(url, { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } });
+        return JSON.stringify(await res.json());
+      }
+
+      case 'get_meta_insights': {
+        const account  = input.account ?? 'ambas';
+        const preset   = input.date_preset ?? 'last_7d';
+        const level    = input.level ?? 'campaign';
+        const results: Record<string, any> = {};
+
+        if (account === 'fromnorth' || account === 'ambas') {
+          results.fromnorth = await fetchMetaInsightsForAccount(META_ACCOUNTS.fromnorth, preset, level);
+        }
+        if (account === 'juan' || account === 'ambas') {
+          results.juan = await fetchMetaInsightsForAccount(META_ACCOUNTS.juan, preset, level);
+        }
+        return JSON.stringify({ period: preset, level, data: results });
+      }
+
+      case 'get_meta_campaigns': {
+        const account = input.account ?? 'ambas';
+        const results: Record<string, any> = {};
+
+        if (account === 'fromnorth' || account === 'ambas') {
+          results.fromnorth = await fetchMetaCampaignsForAccount(META_ACCOUNTS.fromnorth);
+        }
+        if (account === 'juan' || account === 'ambas') {
+          results.juan = await fetchMetaCampaignsForAccount(META_ACCOUNTS.juan);
+        }
+        return JSON.stringify(results);
       }
 
       default:
@@ -302,6 +415,8 @@ async function executeTool(name: string, input: Record<string, any>): Promise<st
     return `Error en ${name}: ${String(err)}`;
   }
 }
+
+// ── Handler ───────────────────────────────────────────────────────────────────
 
 export default async function handler(req: Request): Promise<Response> {
   const CORS = {
