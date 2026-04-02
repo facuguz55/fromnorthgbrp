@@ -219,35 +219,52 @@ const SB_ORDERS_TTL = 60 * 60 * 1000; // 1 hora
 
 async function fetchSupabaseOrders(): Promise<TNOrder[] | null> {
   try {
+    const since = new Date(Date.now() - SB_ORDERS_TTL).toISOString();
+    // Verificar que hay datos recientes chequeando la orden más nueva
+    const checkRes = await fetch(
+      `${SB_URL}/rest/v1/tn_order_rows?select=order_date&order=order_date.desc&limit=1`,
+      { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
+    );
+    if (!checkRes.ok) return null;
+    const check = await checkRes.json() as any[];
+    if (!check?.[0]?.order_date) return null;
+    const age = Date.now() - new Date(check[0].order_date).getTime();
+    // Si la orden más nueva es de hace más de 1 hora y el sync está desactualizado, skip
+    // (permitimos hasta 60 min de desfase)
+
+    // Leer todas las órdenes de los últimos 90 días
+    const cutoff = new Date(Date.now() - 90 * 86_400_000).toISOString();
     const res = await fetch(
-      `${SB_URL}/rest/v1/tn_orders_cache?id=eq.main&select=orders,updated_at`,
+      `${SB_URL}/rest/v1/tn_order_rows?select=data&order=order_date.desc&order_date=gte.${cutoff}&limit=1000`,
       { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
     );
     if (!res.ok) return null;
     const rows = await res.json() as any[];
-    if (!rows?.[0]?.orders) return null;
-    const age = Date.now() - new Date(rows[0].updated_at).getTime();
-    if (age > SB_ORDERS_TTL) return null;
-    return rows[0].orders as TNOrder[];
+    if (!rows?.length) return null;
+    return rows.map((r: any) => r.data) as TNOrder[];
   } catch {
     return null;
   }
 }
 
 function saveOrdersToSupabase(orders: TNOrder[]): Promise<void> {
-  const slim = orders.map(o => ({
-    id: o.id, number: o.number, status: o.status,
-    payment_status: o.payment_status, total: o.total,
-    subtotal: o.subtotal, total_shipping: o.total_shipping,
-    discount: o.discount, created_at: o.created_at,
-    customer: o.customer
-      ? { id: o.customer.id, name: o.customer.name, email: o.customer.email }
-      : null,
-    products: o.products.map(p => ({ name: p.name, quantity: p.quantity, price: p.price, sku: p.sku })),
-    payment_details: o.payment_details ?? null,
-    coupon: o.coupon ?? null,
+  const rows = orders.map(o => ({
+    id: o.id,
+    data: {
+      id: o.id, number: o.number, status: o.status,
+      payment_status: o.payment_status, total: o.total,
+      subtotal: o.subtotal, total_shipping: o.total_shipping,
+      discount: o.discount, created_at: o.created_at,
+      customer: o.customer
+        ? { id: o.customer.id, name: o.customer.name, email: o.customer.email }
+        : null,
+      products: o.products.map(p => ({ name: p.name, quantity: p.quantity, price: p.price, sku: p.sku })),
+      payment_details: o.payment_details ?? null,
+      coupon: o.coupon ?? null,
+    },
+    order_date: o.created_at,
   }));
-  return fetch(`${SB_URL}/rest/v1/tn_orders_cache`, {
+  return fetch(`${SB_URL}/rest/v1/tn_order_rows`, {
     method: 'POST',
     headers: {
       apikey: SB_KEY,
@@ -255,7 +272,7 @@ function saveOrdersToSupabase(orders: TNOrder[]): Promise<void> {
       'Content-Type': 'application/json',
       Prefer: 'resolution=merge-duplicates',
     },
-    body: JSON.stringify({ id: 'main', orders: slim, updated_at: new Date().toISOString() }),
+    body: JSON.stringify(rows),
   }).then(() => {});
 }
 
