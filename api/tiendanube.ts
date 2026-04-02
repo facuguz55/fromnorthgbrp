@@ -3,7 +3,7 @@ export const config = { runtime: 'edge' };
 export default async function handler(req: Request): Promise<Response> {
   const CORS = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   };
 
@@ -29,14 +29,27 @@ export default async function handler(req: Request): Promise<Response> {
 
   const tnUrl = `https://api.tiendanube.com/v1/${storeId}/${path}?${url.searchParams}`;
 
-  try {
-    const tnRes = await fetch(tnUrl, {
-      headers: {
-        Authentication: `bearer ${token}`,
-        'User-Agent': 'NovaDashboard (contact@fromnorthgb.com)',
-      },
-    });
+  const tnHeaders: Record<string, string> = {
+    Authentication: `bearer ${token}`,
+    'User-Agent': 'NovaDashboard (contact@fromnorthgb.com)',
+  };
 
+  const fetchOptions: RequestInit = {
+    method: req.method,
+    headers: tnHeaders,
+  };
+
+  // Pasar body para POST/PUT
+  if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
+    const body = await req.text();
+    if (body) {
+      tnHeaders['Content-Type'] = 'application/json';
+      fetchOptions.body = body;
+    }
+  }
+
+  try {
+    const tnRes = await fetch(tnUrl, fetchOptions);
     const body = await tnRes.text();
 
     const headers: Record<string, string> = {
@@ -45,8 +58,8 @@ export default async function handler(req: Request): Promise<Response> {
     };
     const link  = tnRes.headers.get('Link');
     const count = tnRes.headers.get('X-Total-Count');
-    if (link)  headers['Link']           = link;
-    if (count) headers['X-Total-Count']  = count;
+    if (link)  headers['Link']          = link;
+    if (count) headers['X-Total-Count'] = count;
 
     return new Response(body, { status: tnRes.status, headers });
   } catch (err) {
