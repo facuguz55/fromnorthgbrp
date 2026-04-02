@@ -11,6 +11,7 @@ import './Cupones.css';
 const WEBHOOK_GET    = 'https://devwebhookn8n.santafeia.shop/webhook/cupones-web-f';
 const WEBHOOK_CREATE = 'https://devwebhookn8n.santafeia.shop/webhook/crear-cupon-web-f';
 const TN_BASE        = 'https://api.tiendanube.com/v1';
+const POLL_INTERVAL  = 60_000; // 60 segundos
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -124,11 +125,36 @@ export default function Cupones() {
     setLoading(true);
     setError(null);
     try {
-      const res  = await fetch(WEBHOOK_GET, { method: 'POST', headers: { Accept: 'application/json' } });
-      const text = await res.text();
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const raw  = JSON.parse(text);
-      // Filtramos los cupones eliminados en TiendaNube (is_deleted: true)
+      const settings = getSettings();
+      const storeId  = settings.tiendanubeStoreId.trim();
+      const token    = settings.tiendanubeToken.trim();
+
+      let raw: unknown;
+
+      if (storeId && token) {
+        // Fetch directo a TiendaNube — siempre datos frescos
+        let res: Response;
+        try {
+          res = await fetch(`${TN_BASE}/${storeId}/coupons?per_page=200`, {
+            headers: {
+              Authentication: `bearer ${token}`,
+              'User-Agent': 'NovaDashboard (contact@fromnorthgb.com)',
+            },
+          });
+        } catch {
+          // CORS o network error → usar proxy Vercel
+          const qs = new URLSearchParams({ storeId, token, path: 'coupons', per_page: '200' });
+          res = await fetch(`/api/tiendanube?${qs}`);
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        raw = await res.json();
+      } else {
+        // Fallback al webhook n8n si no hay credenciales
+        const res = await fetch(WEBHOOK_GET, { method: 'POST', headers: { Accept: 'application/json' } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        raw = await res.json();
+      }
+
       setCupones(normalizeCupones(raw).filter(c => !c.is_deleted));
     } catch (e) {
       setError(String(e));
@@ -137,7 +163,17 @@ export default function Cupones() {
     }
   }, []);
 
-  useEffect(() => { fetchCupones(); }, [fetchCupones]);
+  // Carga inicial + polling cada 60s + refresh al volver a la pestaña
+  useEffect(() => {
+    fetchCupones();
+    const interval = setInterval(fetchCupones, POLL_INTERVAL);
+    const onVisible = () => { if (!document.hidden) fetchCupones(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [fetchCupones]);
 
   const handleField = (k: keyof FormState, v: string) =>
     setForm(prev => ({ ...prev, [k]: v }));
