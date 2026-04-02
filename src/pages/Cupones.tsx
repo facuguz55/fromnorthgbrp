@@ -91,11 +91,10 @@ function TipoIcon({ type }: { type: TipoDescuento }) {
   return <Truck size={13} />;
 }
 
-function EstadoBadge({ valid, is_deleted }: { valid: boolean; is_deleted: boolean }) {
-  const on = valid && !is_deleted;
+function EstadoBadge({ valid }: { valid: boolean }) {
   return (
-    <span className={`cupon-estado ${on ? 'activo' : 'inactivo'}`}>
-      {is_deleted ? 'Eliminado' : on ? 'Activo' : 'Inactivo'}
+    <span className={`cupon-estado ${valid ? 'activo' : 'inactivo'}`}>
+      {valid ? 'Activo' : 'Inactivo'}
     </span>
   );
 }
@@ -129,7 +128,8 @@ export default function Cupones() {
       const text = await res.text();
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const raw  = JSON.parse(text);
-      setCupones(normalizeCupones(raw));
+      // Filtramos los cupones eliminados en TiendaNube (is_deleted: true)
+      setCupones(normalizeCupones(raw).filter(c => !c.is_deleted));
     } catch (e) {
       setError(String(e));
     } finally {
@@ -543,13 +543,12 @@ export default function Cupones() {
                         : `${c.used} usos`}
                     </td>
                     <td className="cupon-secondary">{formatFecha(c.end_date)}</td>
-                    <td><EstadoBadge valid={c.valid} is_deleted={c.is_deleted} /></td>
+                    <td><EstadoBadge valid={c.valid} /></td>
                     <td>
                       <button
                         className="cupon-edit-btn"
                         onClick={() => handleStartEdit(c)}
                         title="Editar cupón"
-                        disabled={c.is_deleted}
                       >
                         <Pencil size={13} />
                       </button>
