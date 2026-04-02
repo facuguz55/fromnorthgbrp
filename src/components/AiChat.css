@@ -304,7 +304,7 @@
   min-height: 36px;
   max-height: 120px;
   overflow-y: auto;
-  transition: border-color var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .ai-input::placeholder { color: var(--text-muted); }
@@ -315,6 +315,77 @@
 }
 
 .ai-input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Input pulsing while listening */
+.ai-input-listening {
+  border-color: var(--accent-danger) !important;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15) !important;
+  animation: aiListeningPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes aiListeningPulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15); }
+  50%       { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.25); }
+}
+
+/* ── Mic button ─────────────────────────────────────────────────────────────── */
+
+.ai-mic {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+  overflow: visible;
+}
+
+.ai-mic:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border-color: var(--border-highlight);
+}
+
+.ai-mic:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+/* Active (recording) state */
+.ai-mic-active {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border-color: var(--accent-danger) !important;
+  color: var(--accent-danger) !important;
+}
+
+.ai-mic-active:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2) !important;
+}
+
+/* Ripple ring animation while recording */
+.ai-mic-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 10px;
+  border: 2px solid var(--accent-danger);
+  opacity: 0;
+  animation: aiMicRing 1.4s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes aiMicRing {
+  0%   { opacity: 0.7; transform: scale(1); }
+  100% { opacity: 0;   transform: scale(1.5); }
+}
+
+/* ── Send button ────────────────────────────────────────────────────────────── */
 
 .ai-send {
   width: 36px;
