@@ -83,6 +83,39 @@ function normalizeCupones(raw: unknown): Cupon[] {
   return [];
 }
 
+// ── Fetch helper para una página de cupones ───────────────────────────────────
+
+async function fetchCuponesPage(
+  storeId: string,
+  token: string,
+  page: number,
+): Promise<{ data: Cupon[]; hasMore: boolean }> {
+  let res: Response;
+  try {
+    res = await fetch(
+      `${TN_BASE}/${storeId}/coupons?per_page=50&page=${page}`,
+      {
+        headers: {
+          Authentication: `bearer ${token}`,
+          'User-Agent': 'NovaDashboard (contact@fromnorthgb.com)',
+        },
+      },
+    );
+  } catch {
+    // CORS fallback → proxy Vercel
+    const qs = new URLSearchParams({ storeId, token, path: 'coupons', per_page: '50', page: String(page) });
+    res = await fetch(`/api/tiendanube?${qs}`);
+  }
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json() as Cupon[];
+  // Dos formas de detectar si hay más páginas:
+  // 1. Header Link con rel="next" (cuando el proxy lo expone)
+  // 2. La página devuelve 50 ítems (el máximo pedido), entonces puede haber más
+  const linkHeader = res.headers.get('Link') ?? '';
+  const hasMore = linkHeader.includes('rel="next"') || data.length === 50;
+  return { data, hasMore };
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function TipoIcon({ type }: { type: TipoDescuento }) {
@@ -131,30 +164,11 @@ export default function Cupones() {
       let allCupones: Cupon[] = [];
 
       if (storeId && token) {
-        // TiendaNube devuelve 30 por página — paginamos hasta traer todos
+        // Paginar hasta traer todos los cupones
         for (let page = 1; page <= 20; page++) {
-          let res: Response;
-          try {
-            res = await fetch(
-              `${TN_BASE}/${storeId}/coupons?per_page=200&page=${page}`,
-              {
-                headers: {
-                  Authentication: `bearer ${token}`,
-                  'User-Agent': 'NovaDashboard (contact@fromnorthgb.com)',
-                },
-              },
-            );
-          } catch {
-            // CORS fallback → proxy Vercel
-            const qs = new URLSearchParams({ storeId, token, path: 'coupons', per_page: '200', page: String(page) });
-            res = await fetch(`/api/tiendanube?${qs}`);
-          }
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data = await res.json() as Cupon[];
+          const { data, hasMore } = await fetchCuponesPage(storeId, token, page);
           allCupones.push(...data);
-          // Si no hay rel="next" en el header Link, terminamos
-          const hasMore = (res.headers.get('Link') ?? '').includes('rel="next"');
-          if (!hasMore || data.length === 0) break;
+          if (!hasMore) break;
         }
       } else {
         // Fallback al webhook n8n si no hay credenciales
