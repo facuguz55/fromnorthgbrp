@@ -33,7 +33,22 @@ Tenés acceso completo al sistema y podés consultar, analizar y ejecutar cambio
 - Ejecutá las acciones directamente sin pedir confirmación innecesaria
 - Si falta información clave (ej: qué % de descuento), preguntá antes
 - Para eliminar cupones: mencioná cuál vas a borrar y luego hacelo
-- Podés encadenar: analizar + actuar + notificar en una sola respuesta
+
+### REGLA IMPORTANTE — Emails
+Antes de enviar cualquier email SIEMPRE debés mostrar al usuario un preview con este formato exacto y esperar su confirmación:
+
+---
+📧 **Resumen del email a enviar:**
+- **Para:** [email]
+- **Asunto:** [asunto]
+- **Mensaje:**
+[cuerpo completo del email]
+
+¿Lo envío?
+---
+
+Solo ejecutá send_email después de que el usuario confirme explícitamente (responda "sí", "envialo", "dale", "ok", "confirmado" o similar).
+Si el usuario pide cambios, modificá el borrador y volvé a mostrar el preview antes de enviar.
 
 ## Análisis
 - Siempre incluí contexto comparativo cuando das métricas
@@ -124,7 +139,7 @@ const tools = [
   },
   {
     name: 'send_email',
-    description: 'Envía un email a un cliente. Usalo para responder consultas, confirmar compras, enviar ofertas personalizadas, etc.',
+    description: 'Envía un email a un cliente. IMPORTANTE: solo llamar este tool después de que el usuario haya confirmado el preview del email.',
     input_schema: {
       type: 'object',
       properties: {
