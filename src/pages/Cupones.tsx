@@ -273,7 +273,6 @@ export default function Cupones() {
         'Content-Type': 'application/json',
       };
 
-      // Crear directo en TiendaNube — así aparece inmediatamente al refrescar
       let res: Response;
       try {
         res = await fetch(`${TN_BASE}/${storeId}/coupons`, {
@@ -291,9 +290,17 @@ export default function Cupones() {
         });
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      // TiendaNube devuelve el cupón creado en la respuesta —
+      // lo agregamos al estado local directamente, sin esperar al próximo GET.
+      const nuevoCupon = await res.json() as Cupon;
+      setCupones(prev => [...prev, nuevoCupon]);
+
       showToast('ok', `Cupón "${body.code}" creado correctamente.`);
       setForm(FORM_EMPTY);
       setShowForm(false);
+
+      // También sincronizamos en background para quedar 100% alineados con TN
       fetchCupones();
     } catch (e) {
       showToast('err', `No se pudo crear el cupón. ${e}`);
