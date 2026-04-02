@@ -9,7 +9,7 @@ interface Message {
 
 // ── Simple markdown renderer ──────────────────────────────────────────────────
 
-function inlineFormat(text: string): (string | JSX.Element)[] {
+function inlineFormat(text: string) {
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**'))
@@ -20,23 +20,21 @@ function inlineFormat(text: string): (string | JSX.Element)[] {
   });
 }
 
-function renderMarkdown(text: string): JSX.Element[] {
+function renderMarkdown(text: string) {
   const lines = text.split('\n');
-  const elements: JSX.Element[] = [];
+  const elements = [];
   let key = 0;
   let i = 0;
 
   while (i < lines.length) {
     const line = lines[i];
 
-    // Heading
     if (/^#{1,3}\s/.test(line)) {
       elements.push(<p key={key++} className="ai-md-heading">{inlineFormat(line.replace(/^#+\s/, ''))}</p>);
       i++;
       continue;
     }
 
-    // Unordered list
     if (/^[-*•]\s/.test(line)) {
       const items: string[] = [];
       while (i < lines.length && /^[-*•]\s/.test(lines[i])) {
@@ -51,7 +49,6 @@ function renderMarkdown(text: string): JSX.Element[] {
       continue;
     }
 
-    // Ordered list
     if (/^\d+\.\s/.test(line)) {
       const items: string[] = [];
       while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
@@ -66,13 +63,8 @@ function renderMarkdown(text: string): JSX.Element[] {
       continue;
     }
 
-    // Empty line — skip
-    if (line.trim() === '') {
-      i++;
-      continue;
-    }
+    if (line.trim() === '') { i++; continue; }
 
-    // Regular paragraph
     elements.push(<p key={key++}>{inlineFormat(line)}</p>);
     i++;
   }
@@ -92,11 +84,11 @@ const SUGGESTIONS = [
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function AiChat() {
-  const [open, setOpen]       = useState(false);
+  const [open, setOpen]         = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput]     = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState<string | null>(null);
+  const [input, setInput]       = useState('');
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef       = useRef<HTMLTextAreaElement>(null);
 
@@ -108,7 +100,6 @@ export default function AiChat() {
     if (open) setTimeout(() => inputRef.current?.focus(), 150);
   }, [open]);
 
-  // Auto-resize textarea
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     e.target.style.height = 'auto';
@@ -157,7 +148,6 @@ export default function AiChat() {
 
   return (
     <>
-      {/* ── Floating button ── */}
       <button
         className={`ai-fab ${open ? 'ai-fab-open' : ''}`}
         onClick={() => setOpen(v => !v)}
@@ -167,11 +157,9 @@ export default function AiChat() {
         {open ? <X size={22} /> : <Bot size={22} />}
       </button>
 
-      {/* ── Chat panel ── */}
       {open && (
         <div className="ai-panel glass-panel">
 
-          {/* Header */}
           <div className="ai-header">
             <div className="ai-header-info">
               <Sparkles size={15} className="ai-header-icon" />
@@ -185,9 +173,7 @@ export default function AiChat() {
             </button>
           </div>
 
-          {/* Messages */}
           <div className="ai-messages">
-
             {messages.length === 0 && !loading && (
               <div className="ai-empty">
                 <Bot size={30} className="ai-empty-icon" />
@@ -226,14 +212,11 @@ export default function AiChat() {
               </div>
             )}
 
-            {error && (
-              <div className="ai-error">{error}</div>
-            )}
+            {error && <div className="ai-error">{error}</div>}
 
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
           <div className="ai-input-area">
             <textarea
               ref={inputRef}
