@@ -76,9 +76,11 @@ export default function Dashboard() {
     return () => clearInterval(id);
   }, []);
 
-  // Auto-refresh cada 15 minutos para mantener Supabase actualizado
+  // Auto-refresh cada 15 minutos: primero sincroniza TiendaNube -> Supabase, luego lee
   useEffect(() => {
-    const id = setInterval(() => fetchData(true), 15 * 60 * 1000);
+    const id = setInterval(() => {
+      fetch('/api/sync-metrics').catch(() => {}).finally(() => fetchData(true));
+    }, 15 * 60 * 1000);
     return () => clearInterval(id);
   }, []);
 
@@ -104,7 +106,14 @@ export default function Dashboard() {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  // Al entrar: muestra datos del cache inmediatamente, luego sincroniza TiendaNube y refresca
+  useEffect(() => {
+    fetchData();
+    fetch('/api/sync-metrics').catch(() => {}).finally(() => {
+      clearTNCache();
+      fetchData(true);
+    });
+  }, []);
 
   useEffect(() => {
     const settings = getSettings();
