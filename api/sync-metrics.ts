@@ -33,65 +33,44 @@ const simplify = (o: any) => ({
   coupon: o.coupon ?? null,
 });
 
-export default async function handler(req: Request): Promise<Response> {
-  const CORS = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
-  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS });
+async function doSync(full: boolean): Promise<{ mode: string; orders: number }> {
+  const DAYS_BACK = 90;
 
-  try {
-    const url = new URL(req.url);
-    const full = url.searchParams.get('full') === '1';
-    const DAYS_BACK = 90;
+  if (full) {
+    const since = new Date(Date.now() - DAYS_BACK * 86_400_000).toISOString();
+    const qs1 = new URLSearchParams({ per_page: '200', page: '1', created_at_min: since });
+    const res1 = await fetch(`${TN_BASE}/orders?${qs1}`, { headers: TN_HDR });
+    if (!res1.ok) throw new Error(`TiendaNube ${res1.status}`);
 
-    // Sync completo (?full=1): fetchea 90 días en paralelo
-    if (full) {
-      const since = new Date(Date.now() - DAYS_BACK * 86_400_000).toISOString();
-      const qs1 = new URLSearchParams({ per_page: '200', page: '1', created_at_min: since });
-      const res1 = await fetch(`${TN_BASE}/orders?${qs1}`, { headers: TN_HDR });
-      if (!res1.ok) throw new Error(`TiendaNube ${res1.status}`);
+    const data1 = await res1.json() as any[];
+    const hasMore = (res1.headers.get('Link') ?? '').includes('rel="next"');
+    let allOrders = data1.map(simplify);
 
-      const data1 = await res1.json() as any[];
-      const hasMore = (res1.headers.get('Link') ?? '').includes('rel="next"');
-      let allOrders = data1.map(simplify);
-
-      if (hasMore) {
-        const pages = await Promise.all([2, 3, 4, 5].map(async page => {
-          const qs = new URLSearchParams({ per_page: '200', page: String(page), created_at_min: since });
-          const res = await fetch(`${TN_BASE}/orders?${qs}`, { headers: TN_HDR });
-          if (!res.ok) return [];
-          const data = await res.json() as any[];
-          return Array.isArray(data) ? data.map(simplify) : [];
-        }));
-        allOrders = allOrders.concat(...pages);
-      }
-
-      await upsertRows(allOrders);
-      return new Response(JSON.stringify({ ok: true, mode: 'full', orders: allOrders.length }), {
-        headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
+    if (hasMore) {
+      const pages = await Promise.all([2, 3, 4, 5].map(async page => {
+        const qs = new URLSearchParams({ per_page: '200', page: String(page), created_at_min: since });
+        const res = await fetch(`${TN_BASE}/orders?${qs}`, { headers: TN_HDR });
+        if (!res.ok) return [];
+        const data = await res.json() as any[];
+        return Array.isArray(data) ? data.map(simplify) : [];
+      }));
+      allOrders = allOrders.concat(...pages);
     }
 
-    // Sync incremental (cron): órdenes de las últimas 2 horas para capturar cambios de estado de pago
-    const since = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-    const qs = new URLSearchParams({ per_page: '200', page: '1', created_at_min: since });
-    const tnRes = await fetch(`${TN_BASE}/orders?${qs}`, { headers: TN_HDR });
-    if (!tnRes.ok) throw new Error(`TiendaNube ${tnRes.status}`);
-
-    const orders = ((await tnRes.json()) as any[]).map(simplify);
-    if (orders.length > 0) await upsertRows(orders);
-
-    return new Response(JSON.stringify({ ok: true, mode: 'incremental', new: orders.length }), {
-      headers: { ...CORS, 'Content-Type': 'application/json' },
-    });
-
-  } catch (err: any) {
-    return new Response(JSON.stringify({ error: String(err?.message ?? err) }), {
-      status: 500, headers: { 'Content-Type': 'application/json' },
-    });
+    await upsertRows(allOrders);
+    return { mode: 'full', orders: allOrders.length };
   }
+
+  // Incremental: últimas 2 horas para capturar cambios de estado de pago
+  const since = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  const qs = new URLSearchParams({ per_page: '200', page: '1', created_at_min: since });
+  const tnRes = await fetch(`${TN_BASE}/orders?${qs}`, { headers: TN_HDR });
+  if (!tnRes.ok) throw new Error(`TiendaNube ${tnRes.status}`);
+
+  const orders = ((await tnRes.json()) as any[]).map(simplify);
+  if (orders.length > 0) await upsertRows(orders);
+
+  return { mode: 'incremental', orders: orders.length };
 }
 
 async function upsertRows(orders: any[]): Promise<void> {
@@ -110,4 +89,26 @@ async function upsertRows(orders: any[]): Promise<void> {
     },
     body: JSON.stringify(rows),
   });
+}
+
+// Handler estilo Node.js: responde 200 de inmediato para no dar timeout al cron,
+// luego sigue ejecutando el sync en background hasta completar o llegar a maxDuration.
+export default async function handler(req: any, res: any): Promise<void> {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+
+  const full = (req.query?.full ?? new URL(req.url, 'http://x').searchParams.get('full')) === '1';
+
+  // Responder inmediatamente — el cron ve 200 y no da timeout
+  res.status(200).json({ ok: true, started: true, mode: full ? 'full' : 'incremental' });
+
+  // Continuar el sync después de enviar la respuesta
+  try {
+    await doSync(full);
+  } catch (err: any) {
+    console.error('[sync-metrics] Error:', err?.message ?? err);
+  }
 }
