@@ -368,6 +368,47 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+.cupones-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1rem 0 0.25rem;
+  border-top: 1px solid var(--border-color);
+  margin-top: 0.75rem;
+}
+
+.cupones-pag-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.cupones-pag-btn:hover:not(:disabled) {
+  background: var(--bg-hover, rgba(255,255,255,0.06));
+  border-color: var(--accent-primary);
+}
+.cupones-pag-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.cupones-pag-info {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.cupones-pag-sub {
+  color: var(--text-muted);
+}
+
 @media (max-width: 768px) {
   .cupon-toast { bottom: 5.5rem; right: 1rem; }
 }

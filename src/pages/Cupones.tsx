@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Tag, Plus, RefreshCw, AlertCircle,
   CheckCircle2, Percent, DollarSign, Truck, X, Pencil,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { getSettings } from '../services/dataService';
 import './Cupones.css';
@@ -10,6 +11,7 @@ import './Cupones.css';
 
 const WEBHOOK_GET   = 'https://devwebhookn8n.santafeia.shop/webhook/cupones-web-f';
 const POLL_INTERVAL = 60_000; // 60 segundos
+const PAGE_SIZE     = 30;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -134,6 +136,7 @@ export default function Cupones() {
   const [editingCupon,  setEditingCupon]  = useState<Cupon | null>(null);
   const [editForm,      setEditForm]      = useState<FormState>(FORM_EMPTY);
   const [updating,      setUpdating]      = useState(false);
+  const [page,          setPage]          = useState(1);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = (type: 'ok' | 'err', msg: string) => {
@@ -160,6 +163,7 @@ export default function Cupones() {
       }
 
       setCupones(all.filter(c => !c.is_deleted));
+      setPage(1);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -437,44 +441,72 @@ export default function Cupones() {
             <p className="cupones-empty-sub">Creá el primero con el botón "Nuevo cupón"</p>
           </div>
         )}
-        {!loading && !error && cupones.length > 0 && (
-          <div className="cupones-table-wrap">
-            <table className="cupones-table">
-              <thead>
-                <tr>
-                  <th>Código</th><th>Tipo</th><th>Compra mín.</th>
-                  <th>Usos</th><th>Vence</th><th>Estado</th><th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {cupones.map(c => (
-                  <tr key={c.id}>
-                    <td><span className="cupon-code">{c.code}</span></td>
-                    <td>
-                      <span className="cupon-tipo">
-                        <TipoIcon type={c.type} />
-                        {formatTipo(c.type, c.value)}
-                      </span>
-                    </td>
-                    <td className="cupon-secondary">
-                      {c.min_price ? `$${parseFloat(String(c.min_price)).toLocaleString('es-AR')}` : '—'}
-                    </td>
-                    <td className="cupon-secondary">
-                      {c.max_uses != null ? `${c.used} / ${c.max_uses}` : `${c.used} usos`}
-                    </td>
-                    <td className="cupon-secondary">{formatFecha(c.end_date)}</td>
-                    <td><EstadoBadge valid={c.valid} /></td>
-                    <td>
-                      <button className="cupon-edit-btn" onClick={() => handleStartEdit(c)} title="Editar cupón">
-                        <Pencil size={13} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {!loading && !error && cupones.length > 0 && (() => {
+          const totalPages = Math.ceil(cupones.length / PAGE_SIZE);
+          const paginated  = cupones.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+          return (
+            <>
+              <div className="cupones-table-wrap">
+                <table className="cupones-table">
+                  <thead>
+                    <tr>
+                      <th>Código</th><th>Tipo</th><th>Compra mín.</th>
+                      <th>Usos</th><th>Vence</th><th>Estado</th><th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginated.map(c => (
+                      <tr key={c.id}>
+                        <td><span className="cupon-code">{c.code}</span></td>
+                        <td>
+                          <span className="cupon-tipo">
+                            <TipoIcon type={c.type} />
+                            {formatTipo(c.type, c.value)}
+                          </span>
+                        </td>
+                        <td className="cupon-secondary">
+                          {c.min_price ? `$${parseFloat(String(c.min_price)).toLocaleString('es-AR')}` : '—'}
+                        </td>
+                        <td className="cupon-secondary">
+                          {c.max_uses != null ? `${c.used} / ${c.max_uses}` : `${c.used} usos`}
+                        </td>
+                        <td className="cupon-secondary">{formatFecha(c.end_date)}</td>
+                        <td><EstadoBadge valid={c.valid} /></td>
+                        <td>
+                          <button className="cupon-edit-btn" onClick={() => handleStartEdit(c)} title="Editar cupón">
+                            <Pencil size={13} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {totalPages > 1 && (
+                <div className="cupones-pagination">
+                  <button
+                    className="cupones-pag-btn"
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                  >
+                    <ChevronLeft size={15} />
+                  </button>
+                  <span className="cupones-pag-info">
+                    Página {page} de {totalPages}
+                    <span className="cupones-pag-sub"> · {cupones.length} cupones</span>
+                  </span>
+                  <button
+                    className="cupones-pag-btn"
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                  >
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
 
       {toast && (
