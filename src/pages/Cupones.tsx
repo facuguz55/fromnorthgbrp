@@ -88,9 +88,9 @@ async function fetchAllCupones(storeId: string, token: string): Promise<Cupon[]>
   const all: Cupon[] = [];
   const seen = new Set<number | string>();
 
-  for (let page = 1; page <= 50; page++) {
+  for (let page = 1; page <= 20; page++) {
     const res = await fetch(
-      `/api/tiendanube?${new URLSearchParams({ storeId, token, path: 'coupons', per_page: '30', page: String(page) })}`
+      `/api/tiendanube?${new URLSearchParams({ storeId, token, path: 'coupons', per_page: '200', page: String(page) })}`
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -101,10 +101,8 @@ async function fetchAllCupones(storeId: string, token: string): Promise<Cupon[]>
     for (const item of data) {
       if (!seen.has(item.id)) { seen.add(item.id); all.push(item); addedNew = true; }
     }
-    // Si la API devuelve los mismos ítems (no soporta page), parar
     if (!addedNew) break;
-    // Última página real
-    if (data.length < 30) break;
+    if (data.length < 200) break;
   }
 
   return all;

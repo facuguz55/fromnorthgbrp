@@ -431,8 +431,19 @@ async function executeTool(name: string, input: Record<string, any>): Promise<st
       }
 
       case 'get_coupons': {
-        const res = await tnFetch('coupons', { per_page: String(input.per_page ?? 50) });
-        return JSON.stringify(await res.json());
+        const allCoupons: any[] = [];
+        const seen = new Set<number>();
+        for (let page = 1; page <= 20; page++) {
+          const res = await tnFetch('coupons', { per_page: '200', page: String(page) });
+          const data = await res.json() as any[];
+          if (!Array.isArray(data) || data.length === 0) break;
+          let addedNew = false;
+          for (const c of data) {
+            if (!seen.has(c.id)) { seen.add(c.id); allCoupons.push(c); addedNew = true; }
+          }
+          if (!addedNew || data.length < 200) break;
+        }
+        return JSON.stringify(allCoupons);
       }
 
       case 'create_coupon': {
