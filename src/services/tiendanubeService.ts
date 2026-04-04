@@ -215,23 +215,10 @@ export function clearTNCache() {
 
 const SB_URL = 'https://tnmmbfcbviowhunnrzix.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRubW1iZmNidmlvd2h1bm5yeml4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyMTc4MzcsImV4cCI6MjA4OTc5MzgzN30.ZZD8evIrlfY_77-DEh47L-JJxFOxhH8L9xZ_NjHN6QU';
-const SB_ORDERS_TTL = 60 * 60 * 1000; // 1 hora
+const _SB_ORDERS_TTL = 60 * 60 * 1000; // 1 hora (referencia)
 
 async function fetchSupabaseOrders(): Promise<TNOrder[] | null> {
   try {
-    const since = new Date(Date.now() - SB_ORDERS_TTL).toISOString();
-    // Verificar que hay datos recientes chequeando la orden más nueva
-    const checkRes = await fetch(
-      `${SB_URL}/rest/v1/tn_order_rows?select=order_date&order=order_date.desc&limit=1`,
-      { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
-    );
-    if (!checkRes.ok) return null;
-    const check = await checkRes.json() as any[];
-    if (!check?.[0]?.order_date) return null;
-    const age = Date.now() - new Date(check[0].order_date).getTime();
-    // Si la orden más nueva es de hace más de 1 hora y el sync está desactualizado, skip
-    // (permitimos hasta 60 min de desfase)
-
     // Leer todas las órdenes de los últimos 90 días
     const cutoff = new Date(Date.now() - 90 * 86_400_000).toISOString();
     const res = await fetch(
