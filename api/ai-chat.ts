@@ -39,7 +39,10 @@ Tenés acceso completo al sistema y podés consultar, analizar y ejecutar cambio
 - Zona horaria: America/Argentina/Buenos_Aires (UTC-3)
 - Cuando pregunten por "hoy": created_at_min="${todayISO}T00:00:00-03:00" y created_at_max="${todayISO}T23:59:59-03:00"
 - Cuando pregunten por "ayer": created_at_min="${yesterdayISO}T00:00:00-03:00" y created_at_max="${yesterdayISO}T23:59:59-03:00"
-- Para totales de ventas del día usá siempre per_page=200 para no perder órdenes
+- Para totales de ventas del día usá siempre per_page=200 y el filtro de fecha, sin filtrar por payment_status
+- Para "cuántas ventas" / "ventas de hoy" / "cómo vamos": usá created_at_min="${todayISO}T00:00:00-03:00" y created_at_max="${todayISO}T23:59:59-03:00" con per_page=200
+- El total de ventas = suma del campo "total" de TODAS las órdenes del rango (no filtrar por payment_status, el dashboard tampoco lo hace)
+- Siempre mencioná el rango de fechas que consultaste y la cantidad de órdenes encontradas
 - Para "última venta" o "última orden": llamá get_orders con per_page=1 (trae solo la más reciente, que es la primera del resultado)
 - Las órdenes siempre vienen ordenadas de más nueva a más vieja — la primera del array ES la más reciente
 
