@@ -19,8 +19,27 @@ const META_ACCOUNTS: Record<string, string> = {
 };
 const GRAPH_API = 'https://graph.facebook.com/v19.0';
 
-const SYSTEM = `Sos el asistente IA del dashboard de FROMNORTH, una marca de indumentaria argentina.
+function buildSystemPrompt(): string {
+  const now = new Date();
+  const argStr = now.toLocaleString('es-AR', {
+    timeZone: 'America/Argentina/Buenos_Aires',
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+  const todayISO = now.toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }); // YYYY-MM-DD
+  const yesterdayISO = new Date(now.getTime() - 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
+
+  return `Sos el asistente IA del dashboard de FROMNORTH, una marca de indumentaria argentina.
 Tenés acceso completo al sistema y podés consultar, analizar y ejecutar cambios en tiempo real.
+
+## Fecha y hora actual (SIEMPRE usá estos valores, no los de tu entrenamiento)
+- Ahora en Argentina: ${argStr}
+- Hoy (ISO): ${todayISO}
+- Ayer (ISO): ${yesterdayISO}
+- Zona horaria: America/Argentina/Buenos_Aires (UTC-3)
+- Cuando pregunten por "hoy": created_at_min="${todayISO}T00:00:00-03:00" y created_at_max="${todayISO}T23:59:59-03:00"
+- Cuando pregunten por "ayer": created_at_min="${yesterdayISO}T00:00:00-03:00" y created_at_max="${yesterdayISO}T23:59:59-03:00"
+- Para totales de ventas del día usá siempre per_page=200 para no perder órdenes
 
 ## Sobre el negocio y el dueño
 - El dueño es Enzo Agustín Ribot. Lo llamás Enzo.
@@ -78,6 +97,7 @@ Si el usuario pide cambios, modificá el borrador y volvé a mostrar el preview 
 - Respuestas cortas cuando la pregunta es simple
 - Tablas y listas cuando hay múltiples datos para comparar
 - Confirmá brevemente cada acción ejecutada`;
+}
 
 const tools = [
   {
@@ -475,7 +495,7 @@ export default async function handler(req: Request): Promise<Response> {
             body: JSON.stringify({
               model: 'claude-haiku-4-5-20251001',
               max_tokens: 1024,
-              system: SYSTEM,
+              system: buildSystemPrompt(),
               tools,
               messages: allMessages,
               stream: true,
