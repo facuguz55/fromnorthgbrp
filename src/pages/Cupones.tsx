@@ -85,23 +85,32 @@ function normalizeCupones(raw: unknown): Cupon[] {
 // con ID > since_id. Se repite hasta recibir una página vacía.
 
 async function fetchAllCupones(storeId: string, token: string): Promise<Cupon[]> {
+  // Página 1: obtener datos y total real vía X-Total-Count
+  const first = await fetch(
+    `/api/tiendanube?${new URLSearchParams({ storeId, token, path: 'coupons', per_page: '30', page: '1' })}`
+  );
+  if (!first.ok) throw new Error(`HTTP ${first.status}`);
+
+  const firstData = await first.json() as Cupon[];
+  const total = parseInt(first.headers.get('X-Total-Count') ?? '0') || firstData.length;
+  const totalPages = Math.ceil(total / 30);
+
+  if (totalPages <= 1) return firstData;
+
+  // Páginas restantes en paralelo
+  const rest = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, i) =>
+      fetch(`/api/tiendanube?${new URLSearchParams({ storeId, token, path: 'coupons', per_page: '30', page: String(i + 2) })}`)
+        .then(r => r.ok ? r.json() as Promise<Cupon[]> : Promise.resolve([] as Cupon[]))
+    )
+  );
+
+  // Deduplicar por ID por si la API repite páginas
+  const seen = new Set<number | string>();
   const all: Cupon[] = [];
-
-  for (let page = 1; page <= 50; page++) {
-    const params: Record<string, string> = {
-      storeId, token, path: 'coupons', per_page: '30', page: String(page),
-    };
-
-    const res = await fetch(`/api/tiendanube?${new URLSearchParams(params)}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-    const data = await res.json() as Cupon[];
-    if (!data.length) break;
-
-    all.push(...data);
-    if (data.length < 30) break; // última página
+  for (const item of [...firstData, ...rest.flat()]) {
+    if (!seen.has(item.id)) { seen.add(item.id); all.push(item); }
   }
-
   return all;
 }
 
