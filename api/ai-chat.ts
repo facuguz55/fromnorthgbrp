@@ -19,7 +19,25 @@ const META_ACCOUNTS: Record<string, string> = {
 };
 const GRAPH_API = 'https://graph.facebook.com/v19.0';
 
-function buildSystemPrompt(): string {
+async function loadMemories(): Promise<string> {
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/ai_memory?select=category,title,content,tags,confidence&order=updated_at.desc&limit=40`,
+      { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+    );
+    if (!res.ok) return '';
+    const rows = await res.json() as any[];
+    if (!rows?.length) return '';
+    const lines = rows.map((r: any) =>
+      `[${r.category?.toUpperCase() ?? 'MEMORY'}] ${r.title}: ${r.content}${r.tags?.length ? ` (tags: ${r.tags.join(', ')})` : ''}`
+    );
+    return `\n## Memoria persistente (aprendizajes previos)\n${lines.join('\n')}`;
+  } catch {
+    return '';
+  }
+}
+
+function buildSystemPrompt(memories = ''): string {
   const now = new Date();
   const argStr = now.toLocaleString('es-AR', {
     timeZone: 'America/Argentina/Buenos_Aires',
@@ -109,7 +127,8 @@ Si el usuario pide cambios, modificá el borrador y volvé a mostrar el preview 
 - Español rioplatense, tuteo, directo y sin vueltas
 - Respuestas cortas cuando la pregunta es simple
 - Tablas y listas cuando hay múltiples datos para comparar
-- Confirmá brevemente cada acción ejecutada`;
+- Confirmá brevemente cada acción ejecutada
+- Si el usuario te corrige un dato o te enseña algo importante, guardalo con save_memory para recordarlo en futuras conversaciones${memories}`;
 }
 
 const tools = [
@@ -241,6 +260,32 @@ REGLAS OBLIGATORIAS:
           description: 'Nivel de desglose (default: campaign)',
         },
       },
+    },
+  },
+  {
+    name: 'save_memory',
+    description: 'Guarda un aprendizaje, corrección o dato importante en la memoria persistente para recordarlo en futuras conversaciones. Usalo cuando el usuario te corrija, te enseñe algo nuevo, o cuando detectes un patrón importante del negocio.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        category: { type: 'string', enum: ['lesson', 'correction', 'pattern', 'observation', 'fact'], description: 'lesson=aprendizaje, correction=corrección de dato incorrecto, pattern=patrón del negocio, fact=dato fijo del negocio' },
+        title: { type: 'string', description: 'Título corto y descriptivo' },
+        content: { type: 'string', description: 'Contenido detallado del aprendizaje' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Tags para categorizar (ej: ["cupones","tiendanube"])' },
+        confidence: { type: 'number', description: 'Confianza del 0 al 100' },
+      },
+      required: ['category', 'title', 'content'],
+    },
+  },
+  {
+    name: 'search_memory',
+    description: 'Busca en la memoria persistente aprendizajes o correcciones previas relacionadas con un tema.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Tema a buscar en la memoria (ej: "cupones", "ventas", "clientes")' },
+      },
+      required: ['query'],
     },
   },
   {
@@ -513,6 +558,36 @@ async function executeTool(name: string, input: Record<string, any>): Promise<st
         return JSON.stringify(results);
       }
 
+      case 'save_memory': {
+        const body: Record<string, any> = {
+          category: input.category,
+          title: input.title,
+          content: input.content,
+          source: 'dashboard-chat',
+          times_applied: 0,
+        };
+        if (input.tags)       body.tags       = input.tags;
+        if (input.confidence) body.confidence = input.confidence;
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/ai_memory`, {
+          method: 'POST',
+          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+          body: JSON.stringify(body),
+        });
+        if (res.ok || res.status === 201) return `Memoria guardada: "${input.title}"`;
+        return `Error guardando memoria: ${res.status}`;
+      }
+
+      case 'search_memory': {
+        const q = encodeURIComponent(`%${input.query}%`);
+        const res = await fetch(
+          `${SUPABASE_URL}/rest/v1/ai_memory?or=(title.ilike.${q},content.ilike.${q})&order=updated_at.desc&limit=10`,
+          { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+        );
+        const data = await res.json() as any[];
+        if (!data?.length) return `No encontré memorias relacionadas con "${input.query}"`;
+        return JSON.stringify(data.map((r: any) => ({ category: r.category, title: r.title, content: r.content, tags: r.tags })));
+      }
+
       case 'get_ruleta': {
         const res = await fetch(
           `${SUPABASE_URL}/rest/v1/ruleta_girada?select=*&order=created_at.desc`,
@@ -593,6 +668,7 @@ export default async function handler(req: Request): Promise<Response> {
     });
   }
 
+  const memories = await loadMemories();
   const allMessages: any[] = [...body.messages];
 
   const stream = new ReadableStream({
@@ -613,7 +689,7 @@ export default async function handler(req: Request): Promise<Response> {
             body: JSON.stringify({
               model: 'claude-haiku-4-5-20251001',
               max_tokens: 1024,
-              system: buildSystemPrompt(),
+              system: buildSystemPrompt(memories),
               tools,
               messages: allMessages,
               stream: true,
