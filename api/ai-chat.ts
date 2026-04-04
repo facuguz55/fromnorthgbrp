@@ -46,6 +46,11 @@ function buildSystemPrompt(memories = ''): string {
   });
   const todayISO = now.toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }); // YYYY-MM-DD
   const yesterdayISO = new Date(now.getTime() - 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
+  // TiendaNube ignora el timezone offset — usar UTC puro. Medianoche AR (UTC-3) = 03:00Z
+  const todayStartUTC      = todayISO + 'T03:00:00.000Z';
+  const todayEndUTCStr     = new Date(new Date(todayISO + 'T03:00:00.000Z').getTime() + 86400000).toISOString();
+  const yesterdayStartUTC  = yesterdayISO + 'T03:00:00.000Z';
+  const yesterdayEndUTCStr = new Date(new Date(yesterdayISO + 'T03:00:00.000Z').getTime() + 86400000).toISOString();
 
   return `Sos el asistente IA del dashboard de FROMNORTH, una marca de indumentaria argentina.
 Tenés acceso completo al sistema y podés consultar, analizar y ejecutar cambios en tiempo real.
@@ -55,10 +60,10 @@ Tenés acceso completo al sistema y podés consultar, analizar y ejecutar cambio
 - Hoy (ISO): ${todayISO}
 - Ayer (ISO): ${yesterdayISO}
 - Zona horaria: America/Argentina/Buenos_Aires (UTC-3)
-- Cuando pregunten por "hoy": created_at_min="${todayISO}T00:00:00-03:00" y created_at_max="${todayISO}T23:59:59-03:00"
-- Cuando pregunten por "ayer": created_at_min="${yesterdayISO}T00:00:00-03:00" y created_at_max="${yesterdayISO}T23:59:59-03:00"
+- Cuando pregunten por "hoy": created_at_min="${todayStartUTC}" y created_at_max="${todayEndUTCStr}" (UTC puro — TiendaNube ignora timezone offset)
+- Cuando pregunten por "ayer": created_at_min="${yesterdayStartUTC}" y created_at_max="${yesterdayEndUTCStr}" (UTC puro)
 - Para totales de ventas del día usá siempre per_page=200 y el filtro de fecha, filtrando solo payment_status=paid y authorized
-- Para "cuántas ventas" / "ventas de hoy" / "cómo vamos": usá created_at_min="${todayISO}T00:00:00-03:00" y created_at_max="${todayISO}T23:59:59-03:00" con per_page=200
+- Para "cuántas ventas" / "ventas de hoy" / "cómo vamos": usá created_at_min="${todayStartUTC}" y created_at_max="${todayEndUTCStr}" con per_page=200
 - El total de ventas = suma del campo "total" SOLO de órdenes con payment_status "paid" o "authorized" (igual que el dashboard — las pendientes, sin pagar, reembolsadas y anuladas NO se cuentan)
 - Siempre mencioná el rango de fechas que consultaste y la cantidad de órdenes encontradas
 - Para "última venta" o "última orden": llamá get_orders con per_page=1 (trae solo la más reciente, que es la primera del resultado)
