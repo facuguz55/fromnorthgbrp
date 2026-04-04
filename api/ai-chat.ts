@@ -340,15 +340,35 @@ async function executeTool(name: string, input: Record<string, any>): Promise<st
     switch (name) {
 
       case 'get_orders': {
-        const p: Record<string, string> = { per_page: String(input.per_page ?? 50), page: String(input.page ?? 1) };
-        if (input.payment_status) p.payment_status = input.payment_status;
-        if (input.status) p.status = input.status;
-        if (input.created_at_min) p.created_at_min = input.created_at_min;
-        if (input.created_at_max) p.created_at_max = input.created_at_max;
-        const res = await tnFetch('orders', p);
-        const data = await res.json() as any[];
-        const simplified = (Array.isArray(data) ? data : []).map(simplifyOrder);
-        return JSON.stringify({ total: simplified.length, orders: simplified });
+        const perPage = Math.min(Number(input.per_page ?? 50), 200);
+        const fixedPage = input.page ? Number(input.page) : null;
+        const baseParams: Record<string, string> = { per_page: String(perPage) };
+        if (input.payment_status) baseParams.payment_status = input.payment_status;
+        if (input.status) baseParams.status = input.status;
+        if (input.created_at_min) baseParams.created_at_min = input.created_at_min;
+        if (input.created_at_max) baseParams.created_at_max = input.created_at_max;
+
+        // Si piden una página específica o per_page=1, no paginar
+        if (fixedPage !== null || perPage === 1) {
+          baseParams.page = String(fixedPage ?? 1);
+          const res = await tnFetch('orders', baseParams);
+          const data = await res.json() as any[];
+          const simplified = (Array.isArray(data) ? data : []).map(simplifyOrder);
+          return JSON.stringify({ total: simplified.length, orders: simplified });
+        }
+
+        // Paginación automática: seguir pidiendo hasta que una página devuelva menos de 200
+        const allOrders: any[] = [];
+        let page = 1;
+        while (page <= 20) { // máx 20 páginas = 4000 órdenes
+          const res = await tnFetch('orders', { ...baseParams, page: String(page) });
+          const data = await res.json() as any[];
+          if (!Array.isArray(data) || data.length === 0) break;
+          allOrders.push(...data.map(simplifyOrder));
+          if (data.length < perPage) break; // última página
+          page++;
+        }
+        return JSON.stringify({ total: allOrders.length, orders: allOrders });
       }
 
       case 'get_products': {
