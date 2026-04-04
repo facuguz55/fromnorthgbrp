@@ -2,12 +2,6 @@
   "functions": {
     "api/sync-metrics.ts": { "maxDuration": 60 }
   },
-  "crons": [
-    {
-      "path": "/api/sync-metrics",
-      "schedule": "*/5 * * * *"
-    }
-  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/((?!api).*)", "destination": "/index.html" }
