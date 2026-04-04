@@ -215,7 +215,6 @@ export function clearTNCache() {
 
 const SB_URL = 'https://tnmmbfcbviowhunnrzix.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRubW1iZmNidmlvd2h1bm5yeml4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyMTc4MzcsImV4cCI6MjA4OTc5MzgzN30.ZZD8evIrlfY_77-DEh47L-JJxFOxhH8L9xZ_NjHN6QU';
-const _SB_ORDERS_TTL = 60 * 60 * 1000; // 1 hora (referencia)
 
 async function fetchSupabaseOrders(): Promise<TNOrder[] | null> {
   try {
