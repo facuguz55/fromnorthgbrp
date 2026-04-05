@@ -3,7 +3,7 @@ import {
   RefreshCw, Mail, Send, Sparkles, AlertCircle,
   CheckCircle2, Inbox, Copy, EyeOff, X,
 } from 'lucide-react';
-import { fetchMailsFromDB, fetchMailDetail } from '../services/supabaseService';
+import { fetchMailsFromDB, fetchMailDetail, markMailRespondido } from '../services/supabaseService';
 import './Mails.css';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -220,10 +220,7 @@ export default function Mails() {
   const [enviando,      setEnviando]      = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [toast,         setToast]         = useState<{ type: 'ok' | 'err'; msg: string } | null>(null);
-  const [atendidos,     setAtendidos]     = useState<Set<string>>(() => {
-    try { return new Set(JSON.parse(localStorage.getItem('mails_atendidos') ?? '[]')); }
-    catch { return new Set(); }
-  });
+  const [atendidos, setAtendidos] = useState<Set<string>>(new Set());
   const [debugRaw,      setDebugRaw]      = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -274,6 +271,7 @@ export default function Mails() {
       }));
 
       setMails(freshMails);
+      setAtendidos(new Set(rows.filter(r => r.respondido).map(r => r.id)));
       setFromCache(false);
       setLastRefreshed(new Date());
     } catch (err) {
@@ -304,12 +302,8 @@ export default function Mails() {
       if (!res.ok) throw new Error();
       showToast('ok', '¡Respuesta enviada correctamente!');
       setRespuesta('');
-      setAtendidos(prev => {
-        const next = new Set(prev);
-        next.add(selected.id);
-        try { localStorage.setItem('mails_atendidos', JSON.stringify([...next])); } catch { /* ignore */ }
-        return next;
-      });
+      markMailRespondido(selected.id);
+      setAtendidos(prev => new Set([...prev, selected.id]));
     } catch {
       showToast('err', 'No se pudo enviar. Intentá de nuevo.');
     } finally {

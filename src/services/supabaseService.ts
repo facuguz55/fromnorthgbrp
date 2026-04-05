@@ -47,6 +47,7 @@ export interface MailRow {
   categoria: string;
   resumen: string;
   respuesta_sugerida: string;
+  respondido: boolean;
 }
 
 export async function fetchMailsFromDB(): Promise<MailRow[]> {
@@ -55,7 +56,7 @@ export async function fetchMailsFromDB(): Promise<MailRow[]> {
     const timeout = setTimeout(() => controller.abort(), 4000);
     // Sin cuerpo ni respuesta_sugerida para que sea liviano
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/mails?select=id,thread_id,de,nombre,asunto,fecha,leido,categoria,resumen&order=fecha.desc&limit=60`,
+      `${SUPABASE_URL}/rest/v1/mails?select=id,thread_id,de,nombre,asunto,fecha,leido,categoria,resumen,respondido&order=fecha.desc&limit=60`,
       {
         headers: {
           apikey: SUPABASE_ANON_KEY,
@@ -89,6 +90,21 @@ export async function fetchMailDetail(id: string): Promise<Pick<MailRow, 'cuerpo
   } catch {
     return null;
   }
+}
+
+export async function markMailRespondido(id: string): Promise<void> {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/mails?id=eq.${id}`, {
+      method: 'PATCH',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({ respondido: true }),
+    });
+  } catch { /* silencioso */ }
 }
 
 export async function upsertMails(mails: MailRow[]): Promise<void> {
