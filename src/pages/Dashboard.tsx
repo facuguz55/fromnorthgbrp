@@ -16,6 +16,18 @@ const GID_CLICKS       = '1982854970';
 const GID_CONVERTIDOS  = '11747759';
 import './Dashboard.css';
 
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function getCurrentMonthKeyAR(): string {
+  const AR_OFFSET = -3 * 60 * 60 * 1000;
+  const d = new Date(Date.now() + AR_OFFSET);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+function monthLabel(key: string): string {
+  const [year, month] = key.split('-').map(Number);
+  return `${MESES[month - 1]} ${year}`;
+}
 
 function getAR() {
   const s = new Date().toLocaleString('en-US', {
@@ -57,6 +69,77 @@ export default function Dashboard() {
   const [convertidosCount, setConvertidosCount]     = useState<number | null>(null);
   const [showRecurrentes, setShowRecurrentes]       = useState(false);
   const [metaByDay, setMetaByDay]                   = useState<MetaDailySpend[]>([]);
+  const [selectedMonthKey, setSelectedMonthKey]     = useState(getCurrentMonthKeyAR);
+
+  const currentMonthKey = useMemo(getCurrentMonthKeyAR, []);
+  const isCurrentMonth  = selectedMonthKey === currentMonthKey;
+
+  // Meses disponibles en los datos cargados
+  const availableMonths = useMemo(() => {
+    if (!metrics) return [];
+    const AR_OFFSET = -3 * 60 * 60 * 1000;
+    const monthSet = new Set<string>();
+    for (const o of metrics.orders) {
+      const d = new Date(new Date(o.created_at).getTime() + AR_OFFSET);
+      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      monthSet.add(key);
+    }
+    return [...monthSet].sort().reverse();
+  }, [metrics]);
+
+  // Si el mes actual no tiene órdenes, seleccionar el mes más reciente disponible
+  useEffect(() => {
+    if (availableMonths.length > 0 && !availableMonths.includes(selectedMonthKey)) {
+      setSelectedMonthKey(availableMonths[0]);
+    }
+  }, [availableMonths]);
+
+  // Órdenes pagadas del mes seleccionado
+  const monthOrders = useMemo(() => {
+    if (!metrics) return [];
+    const AR_OFFSET = -3 * 60 * 60 * 1000;
+    return metrics.orders.filter(o => {
+      if (o.payment_status !== 'paid' && o.payment_status !== 'authorized') return false;
+      const d = new Date(new Date(o.created_at).getTime() + AR_OFFSET);
+      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      return key === selectedMonthKey;
+    });
+  }, [metrics, selectedMonthKey]);
+
+  const monthTotal          = useMemo(() => monthOrders.reduce((s, o) => s + parseFloat(o.total), 0), [monthOrders]);
+  const monthOrderCount     = monthOrders.length;
+  const monthTicketPromedio = monthOrderCount > 0 ? monthTotal / monthOrderCount : 0;
+
+  // Últimas órdenes del mes seleccionado
+  const ultimasOrdenes = useMemo(() => {
+    return [...monthOrders]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 10);
+  }, [monthOrders]);
+
+  // Última venta del mes seleccionado
+  const monthUltimaVenta = useMemo(() => {
+    if (ultimasOrdenes.length === 0) return null;
+    const o = ultimasOrdenes[0];
+    return {
+      monto:    parseFloat(o.total),
+      producto: o.products[0]?.name ?? '',
+      hora:     new Date(o.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Argentina/Buenos_Aires' }),
+      cliente:  o.customer?.name ?? '',
+      fecha:    new Date(o.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Argentina/Buenos_Aires' }),
+    };
+  }, [ultimasOrdenes]);
+
+  // Ventas por día filtradas al mes seleccionado
+  const monthVentasPorDia = useMemo(() => {
+    if (!metrics) return [];
+    const [selYear, selMonth] = selectedMonthKey.split('-').map(Number);
+    return metrics.ventasPorDia.filter(d => {
+      const parts = d.name.split('/');
+      if (parts.length !== 3) return false;
+      return parseInt(parts[1]) === selMonth && parseInt(parts[2]) === selYear;
+    });
+  }, [metrics, selectedMonthKey]);
 
   const recurrentesLista = useMemo(() => {
     if (!metrics) return [];
@@ -74,20 +157,11 @@ export default function Dashboard() {
     return Object.values(map).filter(c => c.pedidos > 1).sort((a, b) => b.pedidos - a.pedidos);
   }, [metrics]);
 
-  const ultimasOrdenes = useMemo(() => {
-    if (!metrics) return [];
-    return metrics.orders
-      .filter(o => o.payment_status === 'paid' || o.payment_status === 'authorized')
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 10);
-  }, [metrics]);
-
   useEffect(() => {
     const id = setInterval(() => setResets(getResetLabels()), 60_000);
     return () => clearInterval(id);
   }, []);
 
-  // Auto-refresh cada 15 minutos: primero sincroniza TiendaNube -> Supabase, luego lee
   useEffect(() => {
     const id = setInterval(() => {
       fetch('/api/sync-metrics').catch(() => {}).finally(() => fetchData(true));
@@ -103,7 +177,7 @@ export default function Dashboard() {
     try {
       const settings = getSettings();
       const storeId  = settings?.tiendanubeStoreId?.trim() ?? '';
-      const token    = settings?.tiendanubeToken?.trim()    ?? '';
+      const token    = settings?.tiendanubeToken?.trim()    ?? '';;
       if (!storeId || !token) { setLoading(false); setSyncing(false); return; }
       if (force) clearTNCache();
       const data = await fetchTNMetrics(storeId, token, n => setLoaded(n), force);
@@ -117,7 +191,6 @@ export default function Dashboard() {
     }
   };
 
-  // Al entrar: muestra datos del cache inmediatamente, luego sincroniza TiendaNube y refresca
   useEffect(() => {
     fetchData();
     fetch('/api/sync-metrics').catch(() => {}).finally(() => {
@@ -173,13 +246,52 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Bloques 1 + 2: ambas grillas juntas (en mobile se muestran lado a lado) ── */}
+      {/* ── Filtro de meses ── */}
+      {metrics && availableMonths.length > 0 && (
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
+          {availableMonths.map(key => (
+            <button
+              key={key}
+              onClick={() => setSelectedMonthKey(key)}
+              style={{
+                padding: '0.35rem 0.9rem',
+                borderRadius: '999px',
+                border: '1px solid',
+                borderColor: key === selectedMonthKey ? 'var(--accent-primary)' : 'var(--border-color)',
+                background: key === selectedMonthKey ? 'rgba(6,182,212,0.12)' : 'transparent',
+                color: key === selectedMonthKey ? 'var(--accent-primary)' : 'var(--text-muted)',
+                fontSize: '0.8rem',
+                fontWeight: key === selectedMonthKey ? 600 : 400,
+                cursor: 'pointer',
+                transition: 'border-color 0.15s, color 0.15s, background 0.15s',
+              }}
+            >
+              {monthLabel(key)}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ── Bloques 1 + 2: métricas del mes ── */}
       {metrics && (
         <div className="metrics-both-grids">
           <div className="metrics-grid">
-            <MetricCard title="Ventas Totales (90d)"  value={'$ ' + fmtInt(metrics.totalFacturado)} icon={<DollarSign size={18} />} />
-            <MetricCard title="Ventas Hoy"            value={'$ ' + fmt(metrics.ventasHoy)}         icon={<Activity size={18} />}     subtitle={resets.labelHoy} />
-            <MetricCard title="Ventas Semana"         value={'$ ' + fmt(metrics.ventasSemana)}      icon={<CalendarDays size={18} />} subtitle={resets.labelSemana} />
+            <MetricCard
+              title={`Ventas ${monthLabel(selectedMonthKey)}`}
+              value={'$ ' + fmtInt(monthTotal)}
+              icon={<DollarSign size={18} />}
+            />
+            {isCurrentMonth ? (
+              <>
+                <MetricCard title="Ventas Hoy"    value={'$ ' + fmt(metrics.ventasHoy)}    icon={<Activity size={18} />}     subtitle={resets.labelHoy} />
+                <MetricCard title="Ventas Semana" value={'$ ' + fmt(metrics.ventasSemana)} icon={<CalendarDays size={18} />} subtitle={resets.labelSemana} />
+              </>
+            ) : (
+              <>
+                <MetricCard title="Órdenes del mes"  value={fmtInt(monthOrderCount)}           icon={<Activity size={18} />} />
+                <MetricCard title="Ticket promedio"  value={'$ ' + fmt(monthTicketPromedio)}    icon={<CalendarDays size={18} />} />
+              </>
+            )}
           </div>
           <div className="dashboard-section">
             <p className="dashboard-section-label">Actividad y Conversión</p>
@@ -216,12 +328,12 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Últimas órdenes ── */}
+      {/* ── Últimas órdenes del mes ── */}
       {ultimasOrdenes.length > 0 && (
         <div className="insight-card glass-panel" style={{ overflowX: 'auto' }}>
           <div className="insight-header">
             <ShoppingCart size={15} className="insight-icon" />
-            <h3>Últimas órdenes</h3>
+            <h3>Últimas órdenes — {monthLabel(selectedMonthKey)}</h3>
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
             <thead>
@@ -257,24 +369,24 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Última venta ── */}
-      {metrics?.ultimaVenta && (
+      {/* ── Última venta del mes ── */}
+      {monthUltimaVenta && (
         <div className="ultima-venta-strip glass-panel">
           <ShoppingCart size={15} className="strip-icon" />
           <span className="uv-label">Última venta</span>
           <span className="strip-divider" />
-          <span className="uv-cliente">{metrics.ultimaVenta.cliente || '—'}</span>
+          <span className="uv-cliente">{monthUltimaVenta.cliente || '—'}</span>
           <span className="uv-dot" />
-          <span className="uv-producto">{metrics.ultimaVenta.producto.split('(')[0].trim()}</span>
+          <span className="uv-producto">{monthUltimaVenta.producto.split('(')[0].trim()}</span>
           <span className="uv-dot" />
-          <span className="uv-fecha">{metrics.ultimaVenta.fecha}{metrics.ultimaVenta.hora ? ` · ${metrics.ultimaVenta.hora}` : ''}</span>
-          <span className="uv-monto">$ {fmt(metrics.ultimaVenta.monto)}</span>
+          <span className="uv-fecha">{monthUltimaVenta.fecha}{monthUltimaVenta.hora ? ` · ${monthUltimaVenta.hora}` : ''}</span>
+          <span className="uv-monto">$ {fmt(monthUltimaVenta.monto)}</span>
         </div>
       )}
 
-      {/* ── Gráfico ventas por día ── */}
-      {metrics && metrics.ventasPorDia.length > 0 && (
-        <SalesChart data={metrics.ventasPorDia.map(d => ({
+      {/* ── Gráfico ventas por día del mes ── */}
+      {monthVentasPorDia.length > 0 && (
+        <SalesChart data={monthVentasPorDia.map(d => ({
           ...d,
           inversion: metaByDay.find(m => m.name === d.name)?.inversion,
         }))} />
@@ -296,7 +408,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Modal: Clientes Recurrentes ── */}
+      {/* ── Modal: Clientes Recurrentes (últimos 90 días) ── */}
       {showRecurrentes && (
         <div className="recurrentes-overlay" onClick={() => setShowRecurrentes(false)}>
           <div className="recurrentes-modal glass-panel" onClick={e => e.stopPropagation()}>
