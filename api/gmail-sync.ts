@@ -97,6 +97,21 @@ export default async function handler(req: any, res: any): Promise<void> {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
 
+  // Debug temporal: verificar que las env vars están cargadas
+  const hasClientId     = !!process.env.GMAIL_CLIENT_ID;
+  const hasClientSecret = !!process.env.GMAIL_CLIENT_SECRET;
+  const hasRefreshToken = !!process.env.GMAIL_REFRESH_TOKEN;
+  if (!hasClientId || !hasClientSecret || !hasRefreshToken) {
+    res.status(500).json({
+      ok: false,
+      error: 'Env vars faltantes',
+      GMAIL_CLIENT_ID: hasClientId,
+      GMAIL_CLIENT_SECRET: hasClientSecret,
+      GMAIL_REFRESH_TOKEN: hasRefreshToken,
+    });
+    return;
+  }
+
   try {
     const accessToken = await getAccessToken();
 
