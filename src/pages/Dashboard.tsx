@@ -9,6 +9,8 @@ import {
 import { getSettings, fetchSheetRowCount } from '../services/dataService';
 import { fetchTNMetrics, clearTNCache, getPersistedMetrics } from '../services/tiendanubeService';
 import type { TNMetrics } from '../services/tiendanubeService';
+import { fetchMetaSpendByDay } from '../services/metaAdsService';
+import type { MetaDailySpend } from '../services/metaAdsService';
 
 const GID_CLICKS       = '1982854970';
 const GID_CONVERTIDOS  = '11747759';
@@ -54,6 +56,7 @@ export default function Dashboard() {
   const [clicksCount, setClicksCount]               = useState<number | null>(null);
   const [convertidosCount, setConvertidosCount]     = useState<number | null>(null);
   const [showRecurrentes, setShowRecurrentes]       = useState(false);
+  const [metaByDay, setMetaByDay]                   = useState<MetaDailySpend[]>([]);
 
   const recurrentesLista = useMemo(() => {
     if (!metrics) return [];
@@ -121,6 +124,14 @@ export default function Dashboard() {
     if (!url) return;
     fetchSheetRowCount(url, GID_CLICKS).then(setClicksCount);
     fetchSheetRowCount(url, GID_CONVERTIDOS).then(setConvertidosCount);
+  }, []);
+
+  useEffect(() => {
+    const settings = getSettings();
+    const token     = settings?.metaAccessToken?.trim()  ?? '';
+    const accountId = settings?.metaAdAccountId?.trim()  ?? '';
+    if (!token || !accountId) return;
+    fetchMetaSpendByDay(token, accountId).then(setMetaByDay).catch(() => {});
   }, []);
 
   const settings     = getSettings();
@@ -263,7 +274,10 @@ export default function Dashboard() {
 
       {/* ── Gráfico ventas por día ── */}
       {metrics && metrics.ventasPorDia.length > 0 && (
-        <SalesChart data={metrics.ventasPorDia} />
+        <SalesChart data={metrics.ventasPorDia.map(d => ({
+          ...d,
+          inversion: metaByDay.find(m => m.name === d.name)?.inversion,
+        }))} />
       )}
 
       {/* ── Loading ── */}

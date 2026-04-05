@@ -248,6 +248,48 @@ export function generateMetaAlerts(insights: MetaInsight[], level: 'campaign' | 
   });
 }
 
+// ── Daily spend ────────────────────────────────────────────────────────────────
+
+/** Convierte YYYY-MM-DD → DD/MM/YYYY para matchear con dayLabel de TiendaNube */
+function metaDateToLabel(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+export interface MetaDailySpend {
+  name: string;   // DD/MM/YYYY — igual que ventasPorDia
+  inversion: number;
+}
+
+export async function fetchMetaSpendByDay(
+  token: string,
+  accountId: string,
+  days = 90,
+): Promise<MetaDailySpend[]> {
+  const accountFmt = accountId.startsWith('act_') ? accountId : `act_${accountId}`;
+  const since = new Date(Date.now() - days * 86_400_000).toISOString().split('T')[0];
+  const until = new Date().toISOString().split('T')[0];
+
+  const result = await metaGet<{ data: { spend: string; date_start: string }[] }>(
+    `/${accountFmt}/insights`,
+    token,
+    {
+      fields: 'spend,date_start',
+      time_range: JSON.stringify({ since, until }),
+      time_increment: '1',
+      level: 'account',
+      limit: '200',
+    },
+  );
+
+  return (result.data ?? [])
+    .map(r => ({
+      name:      metaDateToLabel(r.date_start),
+      inversion: parseFloat(r.spend ?? '0') || 0,
+    }))
+    .filter(r => r.inversion > 0);
+}
+
 // ── Summary ────────────────────────────────────────────────────────────────────
 
 export interface MetaSummary {

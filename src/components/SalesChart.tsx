@@ -1,11 +1,13 @@
 import {
-  AreaChart,
+  ComposedChart,
   Area,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer
+  Legend,
+  ResponsiveContainer,
 } from 'recharts';
 
 import './Chart.css';
@@ -13,42 +15,29 @@ import './Chart.css';
 interface ChartDataPoint {
   name: string;
   value: number;
+  inversion?: number;
 }
 
 interface SalesChartProps {
   data: ChartDataPoint[];
 }
 
+const formatMoney = (n: number) =>
+  n >= 1000 ? `$${(n / 1000).toFixed(0)}k` : `$${n}`;
+
 const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="chart-tooltip">
-        <p className="chart-tooltip-label">{label}</p>
-        <p className="chart-tooltip-value" style={{ color: '#10b981' }}>
-          ${Number(payload[0].value).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+  if (!active || !payload || !payload.length) return null;
+  return (
+    <div className="chart-tooltip">
+      <p className="chart-tooltip-label">{label}</p>
+      {payload.map((p: any) => (
+        <p key={p.dataKey} className="chart-tooltip-value" style={{ color: p.color }}>
+          {p.dataKey === 'value' ? 'Ventas' : 'Inversión Meta'}:{' '}
+          ${Number(p.value).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
         </p>
-        <p className="chart-tooltip-sub">Ganancia del día</p>
-      </div>
-    );
-  }
-  return null;
-};
-
-// Format timestamps for X axis
-const formatXTick = (value: string) => {
-  if (!value) return '';
-  // Try to parse date like "2026-03-13 09:50:11"
-  const parts = value.split(' ');
-  if (parts.length === 2) {
-    const timeParts = parts[1].split(':');
-    return `${timeParts[0]}:${timeParts[1]}`;
-  }
-  return value;
-};
-
-const formatYTick = (value: number) => {
-  if (value >= 1000) return `$${(value / 1000).toFixed(0)}k`;
-  return `$${value}`;
+      ))}
+    </div>
+  );
 };
 
 export default function SalesChart({ data }: SalesChartProps) {
@@ -68,6 +57,8 @@ export default function SalesChart({ data }: SalesChartProps) {
     );
   }
 
+  const hasMetaData = data.some(d => d.inversion !== undefined && d.inversion > 0);
+
   return (
     <div className="chart-container glass-panel fade-in" style={{ animationDelay: '0.3s' }}>
       <div className="chart-header">
@@ -75,12 +66,14 @@ export default function SalesChart({ data }: SalesChartProps) {
           <span className="chart-title">Ventas por Día</span>
           <span className="chart-badge">Ingresos</span>
         </div>
-        <span className="chart-subtitle">Evolución de ventas en el período actual</span>
+        <span className="chart-subtitle">
+          {hasMetaData ? 'Ventas vs Inversión Meta Ads' : 'Evolución de ventas en el período actual'}
+        </span>
       </div>
 
       <div className="chart-wrapper">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+          <ComposedChart data={data} margin={{ top: 8, right: hasMetaData ? 48 : 12, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#10b981" stopOpacity={0.5}/>
@@ -90,23 +83,44 @@ export default function SalesChart({ data }: SalesChartProps) {
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
             <XAxis
               dataKey="name"
-              tickFormatter={formatXTick}
               stroke="transparent"
               tick={{ fill: '#475569', fontSize: 11, fontFamily: 'Nunito, Inter, sans-serif' }}
               tickLine={false}
               axisLine={false}
               interval="preserveStartEnd"
             />
+            {/* Eje izquierdo: ventas */}
             <YAxis
-              tickFormatter={formatYTick}
+              yAxisId="ventas"
+              tickFormatter={formatMoney}
               stroke="transparent"
               tick={{ fill: '#475569', fontSize: 11, fontFamily: 'Nunito, Inter, sans-serif' }}
               tickLine={false}
               axisLine={false}
               width={48}
             />
+            {/* Eje derecho: inversión Meta (solo si hay datos) */}
+            {hasMetaData && (
+              <YAxis
+                yAxisId="meta"
+                orientation="right"
+                tickFormatter={formatMoney}
+                stroke="transparent"
+                tick={{ fill: '#475569', fontSize: 11, fontFamily: 'Nunito, Inter, sans-serif' }}
+                tickLine={false}
+                axisLine={false}
+                width={48}
+              />
+            )}
             <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(16,185,129,0.3)', strokeWidth: 1, strokeDasharray: '4 4' }} />
+            {hasMetaData && (
+              <Legend
+                wrapperStyle={{ fontSize: '11px', color: '#475569', paddingTop: '8px' }}
+                formatter={(value) => value === 'value' ? 'Ventas' : 'Inversión Meta'}
+              />
+            )}
             <Area
+              yAxisId="ventas"
               type="monotone"
               dataKey="value"
               stroke="#10b981"
@@ -115,7 +129,19 @@ export default function SalesChart({ data }: SalesChartProps) {
               dot={false}
               activeDot={{ r: 5, fill: '#10b981', stroke: '#0b0f19', strokeWidth: 2 }}
             />
-          </AreaChart>
+            {hasMetaData && (
+              <Line
+                yAxisId="meta"
+                type="monotone"
+                dataKey="inversion"
+                stroke="#f59e0b"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4, fill: '#f59e0b', stroke: '#0b0f19', strokeWidth: 2 }}
+                strokeDasharray="5 3"
+              />
+            )}
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </div>
