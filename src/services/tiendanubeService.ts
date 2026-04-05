@@ -180,6 +180,13 @@ const CACHE_TTL = 30 * 60 * 1000; // 30 minutos — datos frescos
 let metricsCache: { data: TNMetrics; ts: number } | null = null;
 
 /** Lee el cache persistido en localStorage al iniciar */
+function todayLabelAR(): string {
+  return new Date().toLocaleDateString('es-AR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    timeZone: 'America/Argentina/Buenos_Aires',
+  });
+}
+
 function loadPersistedCache(): { data: TNMetrics; ts: number } | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
@@ -189,6 +196,15 @@ function loadPersistedCache(): { data: TNMetrics; ts: number } | null {
     // Invalidar cache viejo donde las fechas no tienen año (formato DD/MM sin año)
     const sample = parsed.data.ventasPorDia?.[0]?.name ?? '';
     if (sample && sample.split('/').length < 3) {
+      localStorage.removeItem(CACHE_KEY);
+      return null;
+    }
+    // Invalidar si el cache es de un día anterior (hora Argentina)
+    const cacheDay = new Date(parsed.ts).toLocaleDateString('es-AR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      timeZone: 'America/Argentina/Buenos_Aires',
+    });
+    if (cacheDay !== todayLabelAR()) {
       localStorage.removeItem(CACHE_KEY);
       return null;
     }
