@@ -4,10 +4,10 @@ import MetricCard from '../components/MetricCard';
 import SalesChart from '../components/SalesChart';
 import {
   RefreshCw, DollarSign, Activity, CalendarDays,
-  ShoppingBag, Trophy, ShoppingCart, Store, UserCheck, MousePointerClick, Users, X,
+  ShoppingCart, Store, UserCheck, MousePointerClick, Users, X,
 } from 'lucide-react';
 import { getSettings, fetchSheetRowCount } from '../services/dataService';
-import { fetchTNMetrics, clearTNCache, getPersistedMetrics } from '../services/tiendanubeService';
+import { fetchTNMetrics, clearTNCache, getPersistedMetrics, paymentStatusLabel } from '../services/tiendanubeService';
 import type { TNMetrics } from '../services/tiendanubeService';
 import { fetchMetaSpendByDay } from '../services/metaAdsService';
 import type { MetaDailySpend } from '../services/metaAdsService';
@@ -72,6 +72,14 @@ export default function Dashboard() {
       map[key].total += parseFloat(o.total);
     }
     return Object.values(map).filter(c => c.pedidos > 1).sort((a, b) => b.pedidos - a.pedidos);
+  }, [metrics]);
+
+  const ultimasOrdenes = useMemo(() => {
+    if (!metrics) return [];
+    return metrics.orders
+      .filter(o => o.payment_status === 'paid' || o.payment_status === 'authorized')
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 10);
   }, [metrics]);
 
   useEffect(() => {
@@ -208,52 +216,44 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ── Top listas ── */}
-      {metrics && (metrics.topProductos.length > 0 || metrics.topCompradores.length > 0) && (
-        <div className="insights-grid desktop-only">
-          {metrics.topProductos.length > 0 && (
-            <div className="insight-card glass-panel">
-              <div className="insight-header">
-                <ShoppingBag size={15} className="insight-icon" />
-                <h3>Productos más vendidos</h3>
-              </div>
-              <ol className="ranking-list">
-                {metrics.topProductos.map((p, i) => (
-                  <li key={p.nombre} className="ranking-item">
-                    <span className={`ranking-pos pos-${i + 1}`}>{i + 1}</span>
-                    <span className="ranking-name" title={p.nombre}>{p.nombre}</span>
-                    <div className="ranking-right">
-                      <span className="ranking-sub">{fmtInt(p.cantidad)} uds.</span>
-                      <span className="ranking-value">$ {fmt(p.total)}</span>
-                    </div>
-                  </li>
+      {/* ── Últimas órdenes ── */}
+      {ultimasOrdenes.length > 0 && (
+        <div className="insight-card glass-panel" style={{ overflowX: 'auto' }}>
+          <div className="insight-header">
+            <ShoppingCart size={15} className="insight-icon" />
+            <h3>Últimas órdenes</h3>
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+            <thead>
+              <tr>
+                {['Pedido', 'Cliente', 'Producto', 'Fecha', 'Monto', 'Estado'].map(h => (
+                  <th key={h} style={{ textAlign: 'left', padding: '0 0.75rem 0.6rem', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color)', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
-              </ol>
-            </div>
-          )}
-          {metrics.topCompradores.length > 0 && (
-            <div className="insight-card glass-panel">
-              <div className="insight-header">
-                <Trophy size={15} className="insight-icon insight-gold" />
-                <h3>Mejores compradores</h3>
-              </div>
-              <ol className="ranking-list">
-                {metrics.topCompradores.map((c, i) => (
-                  <li key={c.email || c.nombre} className="ranking-item">
-                    <span className={`ranking-pos pos-${i + 1}`}>{i + 1}</span>
-                    <div className="ranking-buyer">
-                      <span className="ranking-name" title={c.nombre || c.email}>{c.nombre || c.email}</span>
-                      {c.nombre && <span className="ranking-email">{c.email}</span>}
-                    </div>
-                    <div className="ranking-right">
-                      <span className="ranking-sub">{c.pedidos} pedido{c.pedidos !== 1 ? 's' : ''}</span>
-                      <span className="ranking-value">$ {fmt(c.total)}</span>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
+              </tr>
+            </thead>
+            <tbody>
+              {ultimasOrdenes.map(o => (
+                <tr key={o.id}>
+                  <td style={{ padding: '0.65rem 0.75rem', color: 'var(--text-muted)', borderBottom: '1px solid rgba(255,255,255,0.03)', whiteSpace: 'nowrap' }}>#{o.number}</td>
+                  <td style={{ padding: '0.65rem 0.75rem', color: 'var(--text-primary)', fontWeight: 500, borderBottom: '1px solid rgba(255,255,255,0.03)' }}>{o.customer?.name || '—'}</td>
+                  <td style={{ padding: '0.65rem 0.75rem', color: 'var(--text-secondary)', borderBottom: '1px solid rgba(255,255,255,0.03)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={o.products.map(p => p.name).join(', ')}>
+                    {o.products[0]?.name ?? '—'}{o.products.length > 1 ? ` +${o.products.length - 1}` : ''}
+                  </td>
+                  <td style={{ padding: '0.65rem 0.75rem', color: 'var(--text-muted)', borderBottom: '1px solid rgba(255,255,255,0.03)', whiteSpace: 'nowrap' }}>
+                    {new Date(o.created_at).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', day: '2-digit', month: '2-digit' })}
+                    {' · '}
+                    {new Date(o.created_at).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit' })}
+                  </td>
+                  <td style={{ padding: '0.65rem 0.75rem', color: 'var(--text-secondary)', borderBottom: '1px solid rgba(255,255,255,0.03)', whiteSpace: 'nowrap' }}>$ {fmt(parseFloat(o.total))}</td>
+                  <td style={{ padding: '0.65rem 0.75rem', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                    <span style={{ fontSize: '0.72rem', padding: '0.15rem 0.5rem', borderRadius: '999px', background: 'rgba(34,197,94,0.12)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.25)' }}>
+                      {paymentStatusLabel(o.payment_status)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
