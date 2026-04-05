@@ -97,21 +97,6 @@ export default async function handler(req: any, res: any): Promise<void> {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
 
-  // Debug temporal: verificar que las env vars están cargadas
-  const hasClientId     = !!process.env.GMAIL_CLIENT_ID;
-  const hasClientSecret = !!process.env.GMAIL_CLIENT_SECRET;
-  const hasRefreshToken = !!process.env.GMAIL_REFRESH_TOKEN;
-  if (!hasClientId || !hasClientSecret || !hasRefreshToken) {
-    res.status(500).json({
-      ok: false,
-      error: 'Env vars faltantes',
-      GMAIL_CLIENT_ID: hasClientId,
-      GMAIL_CLIENT_SECRET: hasClientSecret,
-      GMAIL_REFRESH_TOKEN: hasRefreshToken,
-    });
-    return;
-  }
-
   try {
     const accessToken = await getAccessToken();
 
@@ -120,10 +105,7 @@ export default async function handler(req: any, res: any): Promise<void> {
       'https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=30&q=in:inbox',
       { headers: { Authorization: `Bearer ${accessToken}` } },
     );
-    if (!listRes.ok) {
-      const errBody = await listRes.text();
-      throw new Error(`Gmail list error: ${listRes.status} — ${errBody.slice(0, 300)}`);
-    }
+    if (!listRes.ok) throw new Error(`Gmail list error: ${listRes.status}`);
     const listData = await listRes.json() as any;
     const messages: { id: string; threadId: string }[] = listData.messages ?? [];
 
