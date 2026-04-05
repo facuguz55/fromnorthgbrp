@@ -111,7 +111,7 @@ export default function Dashboard() {
     fetchData();
     fetch('/api/sync-metrics').catch(() => {}).finally(() => {
       clearTNCache();
-      fetchData(true);
+      fetchData();
     });
   }, []);
 
