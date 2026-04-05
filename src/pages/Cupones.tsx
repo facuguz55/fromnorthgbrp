@@ -9,11 +9,8 @@ import './Cupones.css';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const WEBHOOK_GET   = 'https://devwebhookn8n.santafeia.shop/webhook/cupones-web-f';
 const POLL_INTERVAL = 60_000;
 const PAGE_SIZE     = 30;
-// TiendaNube caps coupons at 30 per page regardless of per_page param
-const TN_PAGE_SIZE  = 30;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -61,53 +58,28 @@ function formatFecha(date: string | null): string {
   });
 }
 
-function normalizeCupones(raw: unknown): Cupon[] {
-  if (Array.isArray(raw)) {
-    if (raw.length > 0 && raw[0] !== null && typeof raw[0] === 'object' && 'json' in (raw[0] as object)) {
-      return normalizeCupones((raw as { json: unknown }[])[0].json);
-    }
-    return raw as Cupon[];
-  }
-  if (raw !== null && typeof raw === 'object') {
-    const obj = raw as Record<string, unknown>;
-    for (const key of ['cupones', 'coupons', 'data', 'result', 'items']) {
-      if (Array.isArray(obj[key])) return obj[key] as Cupon[];
-    }
-  }
-  return [];
-}
-
-// ── Fetch all coupons via proxy (TN caps at 30/page) ─────────────────────────
+// ── Fetch all coupons via proxy using since_id pagination ─────────────────────
 
 async function fetchAllCupones(storeId: string, token: string): Promise<Cupon[]> {
   const all: Cupon[] = [];
-  const seen = new Set<number | string>();
+  let sinceId: number | null = null;
 
-  for (let page = 1; page <= 100; page++) {
-    const qs = new URLSearchParams({
-      storeId, token, path: 'coupons',
-      per_page: String(TN_PAGE_SIZE),
-      page: String(page),
-    });
-    const res = await fetch(`/api/tiendanube?${qs}`);
+  for (let i = 0; i < 100; i++) {
+    const params: Record<string, string> = {
+      storeId, token, path: 'coupons', per_page: '30',
+    };
+    if (sinceId !== null) params.since_id = String(sinceId);
+
+    const res = await fetch(`/api/tiendanube?${new URLSearchParams(params)}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const data = await res.json() as Cupon[];
     if (!Array.isArray(data) || data.length === 0) break;
 
-    let addedNew = false;
-    for (const item of data) {
-      if (!seen.has(item.id)) {
-        seen.add(item.id);
-        all.push(item);
-        addedNew = true;
-      }
-    }
+    all.push(...data);
 
-    // If API ignores page param and returns same items, stop
-    if (!addedNew) break;
-    // If fewer items than page size, this is the last page
-    if (data.length < TN_PAGE_SIZE) break;
+    if (data.length < 30) break;
+    sinceId = Number(data[data.length - 1].id);
   }
 
   return all;
@@ -220,16 +192,9 @@ export default function Cupones() {
       const settings = getSettings();
       const storeId  = settings.tiendanubeStoreId?.trim() ?? '';
       const token    = settings.tiendanubeToken?.trim()    ?? '';
+      if (!storeId || !token) throw new Error('Configurá el Store ID y Token en Ajustes.');
 
-      let all: Cupon[];
-      if (storeId && token) {
-        all = await fetchAllCupones(storeId, token);
-      } else {
-        const res = await fetch(WEBHOOK_GET, { method: 'POST', headers: { Accept: 'application/json' } });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        all = normalizeCupones(await res.json());
-      }
-
+      const all = await fetchAllCupones(storeId, token);
       setCupones(all.filter(c => !c.is_deleted));
       setPage(1);
     } catch (e) {
