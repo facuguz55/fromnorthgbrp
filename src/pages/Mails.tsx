@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   RefreshCw, Mail, Send, Sparkles, AlertCircle,
-  CheckCircle2, Inbox, Copy, EyeOff, X,
+  CheckCircle2, Inbox, Copy, X, Search,
 } from 'lucide-react';
 import { fetchMailsFromDB, fetchMailDetail, markMailRespondido } from '../services/supabaseService';
 import './Mails.css';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Types ───────────────────────────────────────────────────────────────────
 
 type Categoria = 'urgente' | 'reclamo' | 'consulta' | 'positivo' | 'info' | 'spam';
 type Filtro    = 'todos' | Categoria;
@@ -29,24 +29,15 @@ interface MailItem {
 
 const FROMNORTH_EMAIL = 'enzoribot02@gmail.com';
 
-// Determina si el mail es de FromNorth:
-// - Primario: el remitente coincide exactamente con el email de FromNorth
-// - Secundario: el asunto empieza con "Re:" (respuesta enviada desde Gmail)
-// Ambas condiciones se evalúan para evitar falsos positivos.
 function resolverRemitente(mail: MailItem): 'FromNorth' | 'Cliente' {
-  const esEmailPropio  = mail.de.toLowerCase().trim() === FROMNORTH_EMAIL;
-  const esRespuesta    = /^re\s*:/i.test(mail.asunto.trim());
-  // Es FromNorth solo si el email coincide (con Re: como confirmación extra)
-  // Un Re: de otra dirección sigue siendo un Cliente respondiendo
-  if (esEmailPropio && esRespuesta) return 'FromNorth'; // certeza máxima
-  if (esEmailPropio)                return 'FromNorth'; // email coincide solo
+  const esEmailPropio = mail.de.toLowerCase().trim() === FROMNORTH_EMAIL;
+  const esRespuesta   = /^re\s*:/i.test(mail.asunto.trim());
+  if (esEmailPropio && esRespuesta) return 'FromNorth';
+  if (esEmailPropio)                return 'FromNorth';
   return 'Cliente';
 }
 
-// ── Response normalizer ───────────────────────────────────────────────────────
-// n8n puede devolver el array directo, wrapeado en objeto, o con formato
-// interno [{json: {...}}]. Esta función maneja todos los casos.
-
+// Colores de badges en la lista de mails
 const CAT: Record<Categoria, { label: string; color: string; bg: string }> = {
   urgente:  { label: 'Urgente',  color: '#ef4444', bg: 'rgba(239,68,68,0.13)' },
   reclamo:  { label: 'Reclamo',  color: '#f59e0b', bg: 'rgba(245,158,11,0.13)' },
@@ -54,6 +45,17 @@ const CAT: Record<Categoria, { label: string; color: string; bg: string }> = {
   positivo: { label: 'Positivo', color: '#10b981', bg: 'rgba(16,185,129,0.13)' },
   info:     { label: 'Info',     color: '#06b6d4', bg: 'rgba(6,182,212,0.13)' },
   spam:     { label: 'Spam',     color: '#64748b', bg: 'rgba(100,116,139,0.13)' },
+};
+
+// Colores semánticos de los chips de filtro
+const CHIP: Record<Filtro, { color: string; activeBg: string }> = {
+  todos:    { color: '#06b6d4', activeBg: 'rgba(6,182,212,0.14)' },
+  urgente:  { color: '#c0392b', activeBg: 'rgba(192,57,43,0.14)' },
+  reclamo:  { color: '#e07b00', activeBg: 'rgba(224,123,0,0.14)' },
+  consulta: { color: '#1565C0', activeBg: 'rgba(21,101,192,0.14)' },
+  positivo: { color: '#2e7d32', activeBg: 'rgba(46,125,50,0.14)' },
+  info:     { color: '#64748b', activeBg: 'rgba(100,116,139,0.14)' },
+  spam:     { color: '#64748b', activeBg: 'rgba(100,116,139,0.14)' },
 };
 
 const FILTROS: { key: Filtro; label: string }[] = [
@@ -93,22 +95,18 @@ function formatHora(iso: string): string {
   });
 }
 
-// ── Mail body parser ──────────────────────────────────────────────────────────
-// Detecta el bloque citado (empieza con "El ... escribió:" o líneas con ">")
-// y lo separa del texto principal. El contenido citado NO se modifica.
+// ── Mail body parser ───────────────────────────────────────────────────────────
 
 interface MailSegment {
   type: 'main' | 'quote';
-  header?: string;   // solo para type === 'quote'
+  header?: string;
   text: string;
 }
 
 function parseMailBody(cuerpo: string): MailSegment[] {
-  // Normaliza saltos de línea
   const normalized = cuerpo.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const lines = normalized.split('\n');
 
-  // Patrones que identifican inicio de bloque citado
   const QUOTE_HEADER_RE = /^(El\s+.+escribi[oó][:：]|On\s+.+wrote[:：])\s*$/i;
   const QUOTE_LINE_RE   = /^>\s*/;
 
@@ -117,7 +115,6 @@ function parseMailBody(cuerpo: string): MailSegment[] {
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
     if (QUOTE_HEADER_RE.test(trimmed)) { quoteStart = i; break; }
-    // Si no hay header pero hay líneas con ">", tomamos desde ahí
     if (QUOTE_LINE_RE.test(lines[i]) && i > 0) { quoteStart = i; break; }
   }
 
@@ -129,13 +126,12 @@ function parseMailBody(cuerpo: string): MailSegment[] {
   const mainText = lines.slice(0, quoteStart).join('\n').trimEnd();
   if (mainText) segments.push({ type: 'main', text: mainText });
 
-  // Detecta si la línea de quoteStart es un header o ya es contenido
-  const firstLine = lines[quoteStart].trim();
-  const isHeader  = QUOTE_HEADER_RE.test(firstLine);
+  const firstLine   = lines[quoteStart].trim();
+  const isHeader    = QUOTE_HEADER_RE.test(firstLine);
   const contentStart = isHeader ? quoteStart + 1 : quoteStart;
-  const quoteText = lines
+  const quoteText   = lines
     .slice(contentStart)
-    .map(l => l.replace(QUOTE_LINE_RE, ''))   // quita "> " pero mantiene el texto
+    .map(l => l.replace(QUOTE_LINE_RE, ''))
     .join('\n')
     .trim();
 
@@ -151,22 +147,17 @@ function parseMailBody(cuerpo: string): MailSegment[] {
 function MailBody({ cuerpo, mail }: { cuerpo: string; mail: MailItem }) {
   const segments  = parseMailBody(cuerpo);
   const remitente = resolverRemitente(mail);
-
-  // Quien escribió el texto principal es el remitente del mail.
-  // El bloque citado es el mensaje anterior → la otra parte.
   const mainLabel  = remitente === 'FromNorth' ? 'ENZO' : 'CLIENTE';
   const quoteLabel = remitente === 'FromNorth' ? 'CLIENTE' : 'ENZO';
 
   return (
     <div className="detail-mail-body">
       {segments.map((seg, i) => {
-        const label    = seg.type === 'main' ? mainLabel  : quoteLabel;
-        const isEnzo   = label === 'ENZO';
+        const label  = seg.type === 'main' ? mainLabel : quoteLabel;
+        const isEnzo = label === 'ENZO';
         return (
           <div key={i} className={`mail-conv-block ${seg.type}`}>
-            <span className={`mail-conv-label ${isEnzo ? 'enzo' : 'cliente'}`}>
-              {label}:
-            </span>
+            <span className={`mail-conv-label ${isEnzo ? 'enzo' : 'cliente'}`}>{label}:</span>
             <p className="mail-conv-text">{seg.text}</p>
           </div>
         );
@@ -175,7 +166,7 @@ function MailBody({ cuerpo, mail }: { cuerpo: string; mail: MailItem }) {
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Sub-components ─────────────────────────────────────────────────────────────
 
 function CatBadge({ cat }: { cat: Categoria }) {
   const c = CAT[cat];
@@ -206,7 +197,7 @@ function MailSkeleton() {
   );
 }
 
-// ── Main Component ────────────────────────────────────────────────────────────
+// ── Main Component ─────────────────────────────────────────────────────────────
 
 export default function Mails() {
   const [mails,         setMails]         = useState<MailItem[]>([]);
@@ -214,13 +205,14 @@ export default function Mails() {
   const [fromCache,     setFromCache]     = useState(false);
   const [error,         setError]         = useState(false);
   const [filtro,        setFiltro]        = useState<Filtro>('todos');
-  const [ocultarSpam,   setOcultarSpam]   = useState(true);
+  const [searchQuery,   setSearchQuery]   = useState('');
   const [selected,      setSelected]      = useState<MailItem | null>(null);
   const [respuesta,     setRespuesta]     = useState('');
   const [enviando,      setEnviando]      = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [toast,         setToast]         = useState<{ type: 'ok' | 'err'; msg: string } | null>(null);
-  const [atendidos, setAtendidos] = useState<Set<string>>(new Set());
+  const [atendidos,     setAtendidos]     = useState<Set<string>>(new Set());
+  const [localRead,     setLocalRead]     = useState<Set<string>>(new Set());
   const [debugRaw,      setDebugRaw]      = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -235,7 +227,6 @@ export default function Mails() {
     setError(false);
     setDebugRaw(null);
 
-    // 1. Mostrar Supabase al instante
     if (withCache) {
       const rows = await fetchMailsFromDB();
       if (rows.length > 0) {
@@ -251,24 +242,15 @@ export default function Mails() {
     }
 
     try {
-      // Sincroniza Gmail → Supabase (fetch + clasificación IA en el servidor)
       const res = await fetch('/api/gmail-sync', { method: 'POST' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      // Leer desde Supabase (ya actualizado)
       const rows = await fetchMailsFromDB();
       const freshMails: MailItem[] = rows.map(r => ({
-        id: r.id,
-        threadId: r.thread_id,
-        de: r.de,
-        nombre: r.nombre,
-        asunto: r.asunto,
-        cuerpo: r.cuerpo,
-        fecha: r.fecha,
-        leido: r.leido,
+        id: r.id, threadId: r.thread_id, de: r.de, nombre: r.nombre,
+        asunto: r.asunto, cuerpo: r.cuerpo, fecha: r.fecha, leido: r.leido,
         categoria: r.categoria as MailItem['categoria'],
-        resumen: r.resumen,
-        respuestaSugerida: r.respuesta_sugerida,
+        resumen: r.resumen, respuestaSugerida: r.respuesta_sugerida,
       }));
 
       setMails(freshMails);
@@ -314,7 +296,7 @@ export default function Mails() {
 
   const handleSelectMail = async (mail: MailItem) => {
     setRespuesta('');
-    // Si no tiene cuerpo (vino del cache liviano), lo carga de Supabase
+    setLocalRead(prev => new Set([...prev, mail.id]));
     if (!mail.cuerpo) {
       const detail = await fetchMailDetail(mail.id);
       if (detail) {
@@ -325,7 +307,6 @@ export default function Mails() {
     setSelected(mail);
   };
 
-  // Guards: si por algún motivo el estado no es array, el render no crashea
   const safeMails = Array.isArray(mails) ? mails : [];
 
   const counts = safeMails.reduce((acc, m) => {
@@ -333,18 +314,28 @@ export default function Mails() {
     return acc;
   }, {} as Partial<Record<Categoria, number>>);
 
-  const visibleMails = ocultarSpam && filtro === 'todos'
+  // Todos oculta spam; el chip Spam muestra solo spam
+  const baseFiltered = filtro === 'todos'
     ? safeMails.filter(m => m.categoria !== 'spam')
-    : safeMails;
+    : safeMails.filter(m => m.categoria === filtro);
 
-  const filtered = filtro === 'todos' ? visibleMails : safeMails.filter(m => m.categoria === filtro);
+  const filtered = searchQuery.trim()
+    ? baseFiltered.filter(m => {
+        const q = searchQuery.toLowerCase();
+        return (
+          (m.nombre || m.de).toLowerCase().includes(q) ||
+          m.asunto.toLowerCase().includes(q) ||
+          m.resumen.toLowerCase().includes(q)
+        );
+      })
+    : baseFiltered;
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="mails-page">
 
-      {/* ══ PANEL IZQUIERDO ═════════════════════════════════════════════════ */}
+      {/* ══ PANEL IZQUIERDO ══════════════════════════════════════════════════ */}
       <div className="mails-left">
 
         {/* Header */}
@@ -374,42 +365,80 @@ export default function Mails() {
               Actualizado: {lastRefreshed.toLocaleTimeString('es-AR')}
             </p>
           )}
-          <button
-            className={`filter-spam-toggle ${ocultarSpam ? 'active' : ''}`}
-            onClick={() => setOcultarSpam(v => !v)}
-            title={ocultarSpam ? 'El spam está oculto — click para mostrarlo' : 'Mostrando spam — click para ocultar'}
-          >
-            <EyeOff size={12} />
-            {ocultarSpam ? 'Spam oculto' : 'Mostrar spam'}
-          </button>
+        </div>
+
+        {/* Buscador */}
+        <div style={{ padding: '0 0.75rem 0.5rem' }}>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <Search
+              size={13}
+              style={{
+                position: 'absolute', left: '0.6rem',
+                color: 'var(--text-muted)', pointerEvents: 'none', flexShrink: 0,
+              }}
+            />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Buscar por remitente o asunto..."
+              style={{
+                width: '100%',
+                padding: '0.42rem 1.8rem 0.42rem 1.9rem',
+                background: 'var(--bg-secondary, rgba(255,255,255,0.04))',
+                border: '1px solid var(--border-color)',
+                borderRadius: '6px',
+                color: 'var(--text-primary)',
+                fontSize: '0.78rem',
+                outline: 'none',
+                boxSizing: 'border-box',
+              }}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                style={{
+                  position: 'absolute', right: '0.45rem',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '0.1rem',
+                }}
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Filtros */}
         <div className="mails-filters">
-          {FILTROS.map(f => (
-            <button
-              key={f.key}
-              className={`filter-btn ${filtro === f.key ? 'active' : ''}`}
-              onClick={() => setFiltro(f.key)}
-              style={
-                filtro === f.key && f.key !== 'todos'
-                  ? { color: CAT[f.key as Categoria].color, borderColor: CAT[f.key as Categoria].color + '55', background: CAT[f.key as Categoria].bg }
-                  : undefined
-              }
-            >
-              {f.label}
-              {f.key === 'todos'
-                ? <span className="filter-count">{safeMails.length}</span>
-                : counts[f.key as Categoria]
-                  ? <span className="filter-count">{counts[f.key as Categoria]}</span>
-                  : null}
-            </button>
-          ))}
+          {FILTROS.map(f => {
+            const isActive   = filtro === f.key;
+            const chipColor  = CHIP[f.key];
+            return (
+              <button
+                key={f.key}
+                className={`filter-btn ${isActive ? 'active' : ''}`}
+                onClick={() => setFiltro(f.key)}
+                style={{
+                  borderColor: isActive ? chipColor.color : chipColor.color + '50',
+                  color: chipColor.color,
+                  background: isActive ? chipColor.activeBg : 'transparent',
+                  fontWeight: isActive ? 600 : 400,
+                }}
+              >
+                {f.label}
+                {f.key === 'todos'
+                  ? <span className="filter-count">{safeMails.filter(m => m.categoria !== 'spam').length}</span>
+                  : counts[f.key as Categoria]
+                    ? <span className="filter-count">{counts[f.key as Categoria]}</span>
+                    : null}
+              </button>
+            );
+          })}
         </div>
 
         {/* Lista */}
         <div className="mails-list">
-          {/* Skeleton solo si está cargando Y no hay mails del cache */}
           {loading && filtered.length === 0 && <MailSkeleton />}
 
           {!loading && error && (
@@ -424,10 +453,12 @@ export default function Mails() {
 
           {!loading && !error && filtered.length === 0 && (
             <div className="list-empty">
-              {filtro === 'todos'
-                ? 'No hay mails disponibles'
-                : `No hay mails en la categoría "${CAT[filtro as Categoria]?.label ?? filtro}"`}
-              {debugRaw && filtro === 'todos' && (
+              {searchQuery.trim()
+                ? `Sin resultados para “${searchQuery}”`
+                : filtro === 'todos'
+                  ? 'No hay mails disponibles'
+                  : `No hay mails en la categoría “${CAT[filtro as Categoria]?.label ?? filtro}”`}
+              {debugRaw && filtro === 'todos' && !searchQuery && (
                 <details className="debug-panel">
                   <summary>Ver respuesta del webhook (debug)</summary>
                   <pre>{debugRaw}</pre>
@@ -436,39 +467,70 @@ export default function Mails() {
             </div>
           )}
 
-          {filtered.length > 0 && filtered.map(mail => (
-            <div
-              key={mail.id}
-              className={`mail-item ${selected?.id === mail.id ? 'active' : ''}`}
-              onClick={() => handleSelectMail(mail)}
-            >
-              <div className="mail-item-top">
-                <span className={`mail-item-sender ${!mail.leido ? 'unread' : ''}`}>
-                  {mail.nombre || mail.de}
-                </span>
-                <span className="mail-item-time">{timeAgo(mail.fecha)}</span>
-              </div>
-              <div className="mail-item-meta">
-                <CatBadge cat={mail.categoria} />
-                {atendidos.has(mail.id) && (
-                  <span className="cat-badge" style={{ color: '#10b981', background: 'rgba(16,185,129,0.13)', borderColor: '#10b98133' }}>
-                    Atendido
+          {filtered.map(mail => {
+            const isUnread  = !mail.leido && !localRead.has(mail.id);
+            const isActive  = selected?.id === mail.id;
+            return (
+              <div
+                key={mail.id}
+                className={`mail-item ${isActive ? 'active' : ''}`}
+                onClick={() => handleSelectMail(mail)}
+                style={{
+                  borderLeft: isActive
+                    ? '2px solid var(--accent-primary)'
+                    : '2px solid transparent',
+                  background: isActive
+                    ? 'var(--bg-secondary, rgba(255,255,255,0.05))'
+                    : undefined,
+                }}
+              >
+                {/* Fila 1: remitente + tiempo */}
+                <div className="mail-item-top">
+                  <span
+                    className="mail-item-sender"
+                    style={{ fontWeight: isUnread ? 500 : 400 }}
+                  >
+                    {mail.nombre || mail.de}
                   </span>
-                )}
-                {!mail.leido && <span className="mail-unread-dot" />}
+                  <span className="mail-item-time">{timeAgo(mail.fecha)}</span>
+                </div>
+
+                {/* Fila 2: punto de no leído + tag + atendido */}
+                <div className="mail-item-meta" style={{ alignItems: 'center' }}>
+                  {isUnread && (
+                    <span style={{
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: CAT[mail.categoria].color,
+                      flexShrink: 0, display: 'inline-block', marginRight: 2,
+                    }} />
+                  )}
+                  <CatBadge cat={mail.categoria} />
+                  {atendidos.has(mail.id) && (
+                    <span className="cat-badge" style={{ color: '#10b981', background: 'rgba(16,185,129,0.13)', borderColor: '#10b98133' }}>
+                      Atendido
+                    </span>
+                  )}
+                </div>
+
+                {/* Fila 3: preview con ellipsis */}
+                <p
+                  className="mail-item-summary"
+                  style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                >
+                  {mail.resumen || mail.asunto}
+                </p>
               </div>
-              <p className="mail-item-summary">{mail.resumen}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      {/* ══ PANEL DERECHO ═══════════════════════════════════════════════════ */}
+      {/* ══ PANEL DERECHO ══════════════════════════════════════════════════ */}
       <div className={`mails-right ${!selected ? 'mails-right-empty' : ''}`}>
         {!selected ? (
           <div className="mails-empty-state">
             <Inbox size={40} className="mails-empty-icon" />
-            <p className="mails-empty-title">Seleccioná un mail para ver el detalle</p>
+            <p className="mails-empty-title">Selecioná un mail para ver el detalle</p>
             <p className="mails-empty-sub">
               {safeMails.length > 0
                 ? `${safeMails.length} mails cargados`
@@ -567,7 +629,7 @@ export default function Mails() {
         )}
       </div>
 
-      {/* ══ TOAST ═══════════════════════════════════════════════════════════ */}
+      {/* ══ TOAST ═══════════════════════════════════════════════════════════════════════ */}
       {toast && (
         <div className={`mail-toast ${toast.type}`}>
           {toast.type === 'ok'
