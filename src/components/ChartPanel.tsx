@@ -6,6 +6,8 @@ import {
 import { X } from 'lucide-react';
 import type { TNMetrics, TNOrder } from '../services/tiendanubeService';
 
+type ChartDataItem = { label: string; total: number; ordenes: number } & Record<string, unknown>;
+
 const AR_OFFSET = -3 * 60 * 60 * 1000;
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DIAS_SEMANA = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
@@ -68,7 +70,7 @@ export default function ChartPanel({ activeChart, monthOrders, metrics, selected
   const arNow = useMemo(getARNow, []);
   const { todayStartMS, weekStartMS } = useMemo(getARBoundaries, []);
 
-  const mesData = useMemo(() => {
+  const mesData = useMemo((): ChartDataItem[] => {
     const [year, month] = selectedMonthKey.split('-').map(Number);
     const daysInMonth = new Date(year, month, 0).getDate();
     const map: Record<number, { total: number; ordenes: number }> = {};
@@ -86,7 +88,7 @@ export default function ChartPanel({ activeChart, monthOrders, metrics, selected
     }));
   }, [monthOrders, selectedMonthKey]);
 
-  const hoyData = useMemo(() => {
+  const hoyData = useMemo((): ChartDataItem[] => {
     const paidToday = metrics.orders.filter(o =>
       (o.payment_status === 'paid' || o.payment_status === 'authorized') &&
       new Date(o.created_at).getTime() >= todayStartMS
@@ -106,7 +108,7 @@ export default function ChartPanel({ activeChart, monthOrders, metrics, selected
     }));
   }, [metrics.orders, todayStartMS, arNow.hour]);
 
-  const semanaData = useMemo(() => {
+  const semanaData = useMemo((): ChartDataItem[] => {
     const paidWeek = metrics.orders.filter(o =>
       (o.payment_status === 'paid' || o.payment_status === 'authorized') &&
       new Date(o.created_at).getTime() >= weekStartMS
@@ -128,14 +130,14 @@ export default function ChartPanel({ activeChart, monthOrders, metrics, selected
     }));
   }, [metrics.orders, weekStartMS, arNow.dow]);
 
-  const chartData = activeChart === 'mes' ? mesData : activeChart === 'hoy' ? hoyData : semanaData;
+  const chartData: ChartDataItem[] = activeChart === 'mes' ? mesData : activeChart === 'hoy' ? hoyData : semanaData;
 
-  const isHighlight = (entry: any) => {
-    if (activeChart === 'mes') return entry.dia === arNow.day;
-    if (activeChart === 'hoy') return entry.hora === arNow.hour;
+  const isHighlight = (entry: ChartDataItem) => {
+    if (activeChart === 'mes') return entry['dia'] === arNow.day;
+    if (activeChart === 'hoy') return entry['hora'] === arNow.hour;
     if (activeChart === 'semana') {
       const todayLun = arNow.dow === 0 ? 6 : arNow.dow - 1;
-      return entry.lunIdx === todayLun;
+      return entry['lunIdx'] === todayLun;
     }
     return false;
   };
@@ -177,7 +179,7 @@ export default function ChartPanel({ activeChart, monthOrders, metrics, selected
               <YAxis yAxisId="right" orientation="right" tick={{ fill: '#475569', fontSize: 11 }} tickLine={false} axisLine={false} width={28} allowDecimals={false} />
               <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
               <Bar yAxisId="left" dataKey="total" radius={[3,3,0,0]} maxBarSize={36}>
-                {chartData.map((entry: any, i: number) => (
+                {chartData.map((entry, i) => (
                   <Cell key={i} fill={isHighlight(entry) ? '#06b6d4' : '#10b981'} fillOpacity={isHighlight(entry) ? 1 : 0.7} />
                 ))}
               </Bar>
@@ -196,7 +198,7 @@ export default function ChartPanel({ activeChart, monthOrders, metrics, selected
               <YAxis tickFormatter={fmtK} tick={{ fill: '#475569', fontSize: 11 }} tickLine={false} axisLine={false} width={52} />
               <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
               <Bar dataKey="total" radius={[3,3,0,0]} maxBarSize={activeChart === 'mes' ? 22 : 48}>
-                {chartData.map((entry: any, i: number) => (
+                {chartData.map((entry, i) => (
                   <Cell key={i} fill={isHighlight(entry) ? '#06b6d4' : '#10b981'} fillOpacity={isHighlight(entry) ? 1 : 0.7} />
                 ))}
               </Bar>
