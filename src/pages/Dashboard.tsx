@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import MetricCard from '../components/MetricCard';
 import SalesChart from '../components/SalesChart';
 import MonthSelector from '../components/MonthSelector';
+import ChartPanel from '../components/ChartPanel';
 import {
   RefreshCw, DollarSign, Activity, CalendarDays,
   ShoppingCart, Store, UserCheck, MousePointerClick, Users, X,
@@ -71,6 +72,7 @@ export default function Dashboard() {
   const [convertidosCount, setConvertidosCount]     = useState<number | null>(null);
   const [showRecurrentes, setShowRecurrentes]       = useState(false);
   const [metaByDay, setMetaByDay]                   = useState<MetaDailySpend[]>([]);
+  const [activeChart, setActiveChart]               = useState<'mes' | 'hoy' | 'semana' | null>(null);
 
   const { selectedMonth, setSelectedMonth } = useMonth();
   const selectedMonthKey = `${selectedMonth.year}-${String(selectedMonth.month).padStart(2, '0')}`;
@@ -98,6 +100,13 @@ export default function Dashboard() {
       setSelectedMonth({ month: m, year: y });
     }
   }, [availableMonths]);
+
+  // Cerrar gráficos de hoy/semana si se cambia a un mes no actual
+  useEffect(() => {
+    if (!isCurrentMonth && (activeChart === 'hoy' || activeChart === 'semana')) {
+      setActiveChart(null);
+    }
+  }, [isCurrentMonth]);
 
   // Órdenes pagadas del mes seleccionado
   const monthOrders = useMemo(() => {
@@ -225,6 +234,14 @@ export default function Dashboard() {
   const fmt    = (v: number) => v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const fmtInt = (v: number) => v.toLocaleString('es-AR', { maximumFractionDigits: 0 });
 
+  const cardActiveStyle = (type: 'mes' | 'hoy' | 'semana') => ({
+    cursor: 'pointer',
+    borderRadius: 10,
+    borderBottom: activeChart === type ? '2px solid var(--accent-primary)' : '2px solid transparent',
+    background: activeChart === type ? 'rgba(6,182,212,0.05)' : 'transparent',
+    transition: 'border-color 0.15s, background 0.15s',
+  });
+
   return (
     <div className="dashboard-page fade-in">
 
@@ -260,15 +277,30 @@ export default function Dashboard() {
       {metrics && (
         <div className="metrics-both-grids">
           <div className="metrics-grid">
-            <MetricCard
-              title={`Ventas ${monthLabel(selectedMonthKey)}`}
-              value={'$ ' + fmtInt(monthTotal)}
-              icon={<DollarSign size={18} />}
-            />
+            <div
+              onClick={() => setActiveChart(prev => prev === 'mes' ? null : 'mes')}
+              style={cardActiveStyle('mes')}
+            >
+              <MetricCard
+                title={`Ventas ${monthLabel(selectedMonthKey)}`}
+                value={'$ ' + fmtInt(monthTotal)}
+                icon={<DollarSign size={18} />}
+              />
+            </div>
             {isCurrentMonth ? (
               <>
-                <MetricCard title="Ventas Hoy"    value={'$ ' + fmt(metrics.ventasHoy)}    icon={<Activity size={18} />}     subtitle={resets.labelHoy} />
-                <MetricCard title="Ventas Semana" value={'$ ' + fmt(metrics.ventasSemana)} icon={<CalendarDays size={18} />} subtitle={resets.labelSemana} />
+                <div
+                  onClick={() => setActiveChart(prev => prev === 'hoy' ? null : 'hoy')}
+                  style={cardActiveStyle('hoy')}
+                >
+                  <MetricCard title="Ventas Hoy" value={'$ ' + fmt(metrics.ventasHoy)} icon={<Activity size={18} />} subtitle={resets.labelHoy} />
+                </div>
+                <div
+                  onClick={() => setActiveChart(prev => prev === 'semana' ? null : 'semana')}
+                  style={cardActiveStyle('semana')}
+                >
+                  <MetricCard title="Ventas Semana" value={'$ ' + fmt(metrics.ventasSemana)} icon={<CalendarDays size={18} />} subtitle={resets.labelSemana} />
+                </div>
               </>
             ) : (
               <>
@@ -310,6 +342,17 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Panel de gráfico expandible ── */}
+      {activeChart && metrics && (
+        <ChartPanel
+          activeChart={activeChart}
+          monthOrders={monthOrders}
+          metrics={metrics}
+          selectedMonthKey={selectedMonthKey}
+          onClose={() => setActiveChart(null)}
+        />
       )}
 
       {/* ── Últimas órdenes del mes ── */}
