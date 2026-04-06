@@ -82,6 +82,7 @@
 .alert-sev-spike    { border-left-color: var(--accent-success, #10b981); }
 .alert-sev-trending { border-left-color: #f97316; }
 .alert-sev-big_order { border-left-color: var(--accent-primary, #06b6d4); }
+.alert-sev-critical { border-left-color: #ef4444; }
 
 /* Card top row */
 .alert-card-top {
