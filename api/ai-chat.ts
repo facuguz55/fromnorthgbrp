@@ -674,7 +674,31 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   const memories = await loadMemories();
-  const allMessages: any[] = [...body.messages];
+
+  // Truncar tool results grandes para evitar superar el límite de tokens
+  const truncateMessages = (msgs: any[]): any[] => {
+    return msgs.map(msg => {
+      if (!Array.isArray(msg.content)) return msg;
+      return {
+        ...msg,
+        content: msg.content.map((block: any) => {
+          if (block.type === 'tool_result' && typeof block.content === 'string' && block.content.length > 8000) {
+            return { ...block, content: block.content.slice(0, 8000) + '\n[...resultado truncado para ahorrar tokens]' };
+          }
+          return block;
+        }),
+      };
+    });
+  };
+
+  // Mantener solo los últimos 20 mensajes para no superar el límite de contexto
+  const trimHistory = (msgs: any[]): any[] => {
+    if (msgs.length <= 20) return msgs;
+    // Siempre incluir el primero (contexto inicial del usuario) + los últimos 19
+    return [msgs[0], ...msgs.slice(-19)];
+  };
+
+  const allMessages: any[] = truncateMessages(trimHistory([...body.messages]));
 
   const stream = new ReadableStream({
     async start(controller) {
