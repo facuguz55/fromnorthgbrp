@@ -111,16 +111,10 @@ async function fetchMetaTotalInRange(
       const accountId = (settings[acct.settingsKey] as string).trim();
       if (!accountId) return;
       try {
-        console.log('[RentabilidadProductos] fetchMetaInsightsByDateRange', { acct: acct.key, since, until, currency: acct.currency });
         const insights = await fetchMetaInsightsByDateRange(token, accountId, since, until);
-        console.log('[RentabilidadProductos] insights recibidos', {
-          acct: acct.key,
-          rows: insights.length,
-          fechas: [...new Set(insights.map(i => i.date_start))].sort(),
-          totalSpend: insights.reduce((s, i) => s + i.spend, 0),
-          currency: acct.currency,
-        });
         for (const ins of insights) {
+          // Meta puede devolver filas fuera del rango pedido; ignorar las que no corresponden
+          if (ins.date_start < since || ins.date_start > until) continue;
           const arsValue = acct.currency === 'USD'
             ? ins.spend * usdtPrice
             : ins.spend;
