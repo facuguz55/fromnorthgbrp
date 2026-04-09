@@ -54,9 +54,11 @@ export { DEFAULT_SETTINGS };
 
 // ── Multi-account Meta Ads ─────────────────────────────────────────────────────
 
+// currency: 'ARS' → el spend que reporta Meta ya está en ARS, usar directo
+// currency: 'USD' → el spend está en USD, multiplicar por USDT para convertir a ARS
 export const META_ACCOUNTS = [
-  { key: 'fromnorth' as const, label: 'FROMNORTH', settingsKey: 'metaAdAccountId'  as keyof DashboardSettings },
-  { key: 'juan'      as const, label: 'JUAN',      settingsKey: 'metaAdAccountId2' as keyof DashboardSettings },
+  { key: 'fromnorth' as const, label: 'FROMNORTH', settingsKey: 'metaAdAccountId'  as keyof DashboardSettings, currency: 'ARS' as const },
+  { key: 'juan'      as const, label: 'JUAN',      settingsKey: 'metaAdAccountId2' as keyof DashboardSettings, currency: 'USD' as const },
 ];
 export type MetaAccountKey = 'fromnorth' | 'juan';
 
