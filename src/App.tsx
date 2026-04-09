@@ -18,6 +18,7 @@ import Tienda from './pages/Tienda';
 import Meta from './pages/Meta';
 import Instagram from './pages/Instagram';
 import Rentabilidad from './pages/Rentabilidad';
+import RentabilidadProductos from './pages/RentabilidadProductos';
 import Login from './pages/Login';
 import { getSettings, META_ACCOUNTS } from './services/dataService';
 import { fetchMetaInsights, generateMetaAlerts } from './services/metaAdsService';
@@ -146,7 +147,8 @@ function AppShell() {
           <Route path="/tienda"    element={<ProtectedRoute><Tienda /></ProtectedRoute>} />
           <Route path="/instagram" element={<ProtectedRoute><Instagram /></ProtectedRoute>} />
           <Route path="/meta"          element={<ProtectedRoute><Meta /></ProtectedRoute>} />
-          <Route path="/rentabilidad" element={<ProtectedRoute><Rentabilidad /></ProtectedRoute>} />
+          <Route path="/rentabilidad"          element={<ProtectedRoute><Rentabilidad /></ProtectedRoute>} />
+          <Route path="/rentabilidad-productos" element={<ProtectedRoute><RentabilidadProductos /></ProtectedRoute>} />
           <Route path="/settings"     element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="*"          element={<Navigate to="/dashboard" replace />} />
         </Routes>
