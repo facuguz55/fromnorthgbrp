@@ -78,6 +78,13 @@ export default function Sidebar() {
             </NavLink>
           </li>
           <li className="nav-item">
+            <NavLink to="/rentabilidad-productos" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+              <TrendingUp size={20} />
+              <span className="nav-label-full">Rent. Productos</span>
+              <span className="nav-label-short">Rent.</span>
+            </NavLink>
+          </li>
+          <li className="nav-item">
             <NavLink to="/meta" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
               <Megaphone size={20} />
               <span>Meta Ads</span>
