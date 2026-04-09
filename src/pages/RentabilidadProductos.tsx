@@ -109,7 +109,14 @@ async function fetchMetaTotalInRange(
       const accountId = (settings[acct.settingsKey] as string).trim();
       if (!accountId) return;
       try {
+        console.log('[RentabilidadProductos] fetchMetaInsightsByDateRange', { acct: acct.key, since, until });
         const insights = await fetchMetaInsightsByDateRange(token, accountId, since, until);
+        console.log('[RentabilidadProductos] insights recibidos', {
+          acct: acct.key,
+          rows: insights.length,
+          fechas: [...new Set(insights.map(i => i.date_start))].sort(),
+          totalUSD: insights.reduce((s, i) => s + i.spend, 0),
+        });
         for (const ins of insights) totalUSD += ins.spend;
       } catch {
         error = true;
