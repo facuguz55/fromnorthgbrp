@@ -154,10 +154,17 @@ export async function fetchUSDTPrice(): Promise<{ price: number; error: boolean 
 }
 
 // ── Meta Ads aggregation ────────────────────────────────────────────
+//
+// Cada cuenta tiene su moneda definida en META_ACCOUNTS.currency:
+//   'ARS' → el spend que reporta Meta ya está en ARS, se usa directo
+//   'USD' → el spend está en USD, se convierte a ARS multiplicando por usdtPrice
+//
+// El resultado spendByDay[fecha] está siempre en ARS.
 
 async function fetchMetaSpendByDay(
   since: string,
   until: string,
+  usdtPrice: number,
 ): Promise<Record<string, number>> {
   const settings = getSettings();
   const token    = settings.metaAccessToken.trim();
@@ -174,7 +181,10 @@ async function fetchMetaSpendByDay(
         for (const ins of insights) {
           const day = ins.date_start;
           if (!day) continue;
-          spendByDay[day] = (spendByDay[day] ?? 0) + ins.spend;
+          const arsValue = acct.currency === 'USD'
+            ? ins.spend * usdtPrice
+            : ins.spend;
+          spendByDay[day] = (spendByDay[day] ?? 0) + arsValue;
         }
       } catch { /* fallo silencioso por cuenta */ }
     }),
@@ -188,7 +198,7 @@ async function fetchMetaSpendByDay(
 function buildDia(
   fechaISO: string,
   orders: TNOrder[],
-  metaUSD: number,
+  metaARS: number,
   usdtPrice: number,
 ): DiaRentabilidad {
   let promoA = 0, promoB = 0;
@@ -204,17 +214,18 @@ function buildDia(
     mp[canal]++;
   }
 
-  const totalPromos    = promoA + promoB;
-  const facturado      = promoA * PRECIO_PROMO_A + promoB * PRECIO_PROMO_B;
+  const totalPromos     = promoA + promoB;
+  const facturado       = promoA * PRECIO_PROMO_A + promoB * PRECIO_PROMO_B;
   const costoMercaderia = promoA * COSTO_MERCH_PROMO_A + promoB * COSTO_MERCH_PROMO_B;
-  const costoEnvio     = totalPromos * COSTO_ENVIO_POR_PROMO;
-  const costoAgencia   = totalPromos * COSTO_AGENCIA_POR_PROMO;
-  const inversionMetaARS = metaUSD * usdtPrice;
-  const totalCostos    = costoMercaderia + costoEnvio + costoAgencia + inversionMetaARS;
-  const gananciaNeta   = facturado - totalCostos;
-  const margenPct      = facturado > 0 ? (gananciaNeta / facturado) * 100 : 0;
-  const cpa            = totalPromos > 0 ? inversionMetaARS / totalPromos : 0;
-  const roas           = metaUSD > 0 ? facturado / inversionMetaARS : 0;
+  const costoEnvio      = totalPromos * COSTO_ENVIO_POR_PROMO;
+  const costoAgencia    = totalPromos * COSTO_AGENCIA_POR_PROMO;
+  const inversionMetaARS = metaARS;
+  const inversionMetaUSD = usdtPrice > 0 ? metaARS / usdtPrice : 0;
+  const totalCostos     = costoMercaderia + costoEnvio + costoAgencia + inversionMetaARS;
+  const gananciaNeta    = facturado - totalCostos;
+  const margenPct       = facturado > 0 ? (gananciaNeta / facturado) * 100 : 0;
+  const cpa             = totalPromos > 0 ? inversionMetaARS / totalPromos : 0;
+  const roas            = inversionMetaARS > 0 ? facturado / inversionMetaARS : 0;
 
   return {
     fecha: toARDateLabel(fechaISO),
@@ -227,7 +238,7 @@ function buildDia(
     costoEnvio,
     costoAgencia,
     inversionMetaARS,
-    inversionMetaUSD: metaUSD,
+    inversionMetaUSD,
     totalCostos,
     gananciaNeta,
     margenPct,
@@ -294,7 +305,7 @@ export async function fetchRentabilidadRange(
   let metaError = false;
 
   try {
-    metaSpendByDay = await fetchMetaSpendByDay(since, until);
+    metaSpendByDay = await fetchMetaSpendByDay(since, until, usdtPrice);
   } catch {
     metaError = true;
   }
@@ -302,8 +313,8 @@ export async function fetchRentabilidadRange(
   const allDays = daysInRange(since, until);
   const dias = allDays.map(fechaISO => {
     const dayOrders = filterOrdersByDay(orders, fechaISO);
-    const metaUSD   = metaSpendByDay[fechaISO] ?? 0;
-    return buildDia(fechaISO, dayOrders, metaUSD, usdtPrice);
+    const metaARS   = metaSpendByDay[fechaISO] ?? 0;
+    return buildDia(fechaISO, dayOrders, metaARS, usdtPrice);
   });
 
   return { dias, resumen: buildResumen(dias), metaError };
