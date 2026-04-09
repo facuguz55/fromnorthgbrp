@@ -92,6 +92,8 @@ function computeProductsInRange(
     .sort((a, b) => b.facturado - a.facturado);
 }
 
+// Retorna totalARS (suma ya convertida a ARS según moneda de cada cuenta)
+// y totalUSD (equivalente aproximado: totalARS / usdtPrice).
 async function fetchMetaTotalInRange(
   since: string,
   until: string,
@@ -101,7 +103,7 @@ async function fetchMetaTotalInRange(
   const token    = settings.metaAccessToken.trim();
   if (!token) return { ars: 0, usd: 0, error: false };
 
-  let totalUSD = 0;
+  let totalARS = 0;
   let error    = false;
 
   await Promise.all(
@@ -109,22 +111,29 @@ async function fetchMetaTotalInRange(
       const accountId = (settings[acct.settingsKey] as string).trim();
       if (!accountId) return;
       try {
-        console.log('[RentabilidadProductos] fetchMetaInsightsByDateRange', { acct: acct.key, since, until });
+        console.log('[RentabilidadProductos] fetchMetaInsightsByDateRange', { acct: acct.key, since, until, currency: acct.currency });
         const insights = await fetchMetaInsightsByDateRange(token, accountId, since, until);
         console.log('[RentabilidadProductos] insights recibidos', {
           acct: acct.key,
           rows: insights.length,
           fechas: [...new Set(insights.map(i => i.date_start))].sort(),
-          totalUSD: insights.reduce((s, i) => s + i.spend, 0),
+          totalSpend: insights.reduce((s, i) => s + i.spend, 0),
+          currency: acct.currency,
         });
-        for (const ins of insights) totalUSD += ins.spend;
+        for (const ins of insights) {
+          const arsValue = acct.currency === 'USD'
+            ? ins.spend * usdtPrice
+            : ins.spend;
+          totalARS += arsValue;
+        }
       } catch {
         error = true;
       }
     }),
   );
 
-  return { ars: totalUSD * usdtPrice, usd: totalUSD, error };
+  const usd = usdtPrice > 0 ? totalARS / usdtPrice : 0;
+  return { ars: totalARS, usd, error };
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -486,7 +495,7 @@ export default function RentabilidadProductos() {
             title="Inversión Meta"
             value={fmtARS(totalMeta)}
             icon={<DollarSign size={18} />}
-            subtitle={`USD ${totalMetaUSD.toFixed(2)}`}
+            subtitle={`USD equiv. ${totalMetaUSD.toFixed(2)}`}
           />
         </div>
       )}
