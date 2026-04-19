@@ -50,7 +50,7 @@ async function doSync(full: boolean): Promise<{ mode: string; orders: number }> 
     let allOrders = data1.map(simplify);
 
     if (hasMore) {
-      const pages = await Promise.all([2, 3, 4, 5].map(async page => {
+      const pages = await Promise.all([2, 3, 4, 5, 6, 7, 8, 9, 10].map(async page => {
         const res = await fetch(`${TN_BASE}/orders?per_page=200&page=${page}&created_at_min=${since}`, { headers: TN_HDR });
         if (!res.ok) return [];
         const data = await res.json() as any[];
