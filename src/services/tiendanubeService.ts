@@ -27,7 +27,7 @@ export interface TNOrder {
   created_at: string;
   customer: { id: number; name: string; email: string } | null;
   products: TNProduct[];
-  payment_details: { method: string; credit_card_company?: string } | null;
+  payment_details: { method: string; credit_card_company?: string; installments?: number | null } | null;
   coupon: TNOrderCoupon[] | null;
 }
 

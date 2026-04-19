@@ -28,7 +28,11 @@ const simplify = (o: any) => ({
     name: p.name, quantity: p.quantity, price: p.price, sku: p.sku ?? null,
   })),
   payment_details: o.payment_details
-    ? { method: o.payment_details.method, credit_card_company: o.payment_details.credit_card_company ?? null }
+    ? {
+        method: o.payment_details.method,
+        credit_card_company: o.payment_details.credit_card_company ?? null,
+        installments: o.payment_details.installments ?? null,
+      }
     : null,
   coupon: o.coupon ?? null,
 });

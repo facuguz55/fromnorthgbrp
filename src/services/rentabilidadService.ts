@@ -28,6 +28,7 @@ export interface DiaRentabilidad {
   costoMercaderia: number;
   costoEnvio: number;
   costoAgencia: number;
+  costoComision: number;
   inversionMetaARS: number;
   inversionMetaUSD: number;
   totalCostos: number;
@@ -47,6 +48,7 @@ export interface ResumenRentabilidad {
   costoMercaderiaTotal: number;
   costoEnvioTotal: number;
   costoAgenciaTotal: number;
+  costoComisionTotal: number;
   inversionMetaARSTotal: number;
   inversionMetaUSDTotal: number;
   totalCostosTotal: number;
@@ -112,6 +114,31 @@ function detectPromo(products: TNProduct[]): 'A' | 'B' | null {
     if (name.includes('3 BAGGY')) return 'B';
   }
   return null;
+}
+
+// ── Comisiones Pago Nube ────────────────────────────────────────────
+// CPT 7 días: tarjetas y billeteras = 3.89% + IVA | transferencia = 0.85% + IVA
+// 3 cuotas = 9% flat (según configuración del negocio)
+
+const IVA = 1.21;
+const FEE_TARJETA   = 0.0389 * IVA; // 4.71%
+const FEE_TRANSFER  = 0.0085 * IVA; // 1.03%
+const FEE_3_CUOTAS  = 0.09;
+
+function calcComisionOrden(order: TNOrder): number {
+  const total        = parseFloat(order.total);
+  const method       = order.payment_details?.method?.toLowerCase() ?? '';
+  const installments = order.payment_details?.installments ?? 1;
+  if (installments === 3)              return total * FEE_3_CUOTAS;
+  if (method === 'bank_transfer')      return total * FEE_TRANSFER;
+  if (
+    method === 'credit_card'   ||
+    method === 'debit_card'    ||
+    method === 'mercado_pago'  ||
+    method === 'account_money' ||
+    method.includes('nube')
+  )                                    return total * FEE_TARJETA;
+  return 0;
 }
 
 function detectMetodoPago(method: string | undefined): 'mercadoPago' | 'pagoNube' | 'otros' {
@@ -202,6 +229,7 @@ function buildDia(
   usdtPrice: number,
 ): DiaRentabilidad {
   let promoA = 0, promoB = 0;
+  let costoComision = 0;
   const mp = { mercadoPago: 0, pagoNube: 0, otros: 0 };
 
   for (const o of orders) {
@@ -210,6 +238,7 @@ function buildDia(
     if (!promo) continue;
     if (promo === 'A') promoA++;
     else promoB++;
+    costoComision += calcComisionOrden(o);
     const canal = detectMetodoPago(o.payment_details?.method);
     mp[canal]++;
   }
@@ -221,7 +250,7 @@ function buildDia(
   const costoAgencia    = totalPromos * COSTO_AGENCIA_POR_PROMO;
   const inversionMetaARS = metaARS;
   const inversionMetaUSD = usdtPrice > 0 ? metaARS / usdtPrice : 0;
-  const totalCostos     = costoMercaderia + costoEnvio + costoAgencia + inversionMetaARS;
+  const totalCostos     = costoMercaderia + costoEnvio + costoAgencia + costoComision + inversionMetaARS;
   const gananciaNeta    = facturado - totalCostos;
   const margenPct       = facturado > 0 ? (gananciaNeta / facturado) * 100 : 0;
   const cpa             = totalPromos > 0 ? inversionMetaARS / totalPromos : 0;
@@ -237,6 +266,7 @@ function buildDia(
     costoMercaderia,
     costoEnvio,
     costoAgencia,
+    costoComision,
     inversionMetaARS,
     inversionMetaUSD,
     totalCostos,
@@ -253,6 +283,7 @@ function buildResumen(dias: DiaRentabilidad[]): ResumenRentabilidad {
   const costoMercaderiaTotal  = dias.reduce((s, d) => s + d.costoMercaderia, 0);
   const costoEnvioTotal       = dias.reduce((s, d) => s + d.costoEnvio, 0);
   const costoAgenciaTotal     = dias.reduce((s, d) => s + d.costoAgencia, 0);
+  const costoComisionTotal    = dias.reduce((s, d) => s + d.costoComision, 0);
   const inversionMetaARSTotal = dias.reduce((s, d) => s + d.inversionMetaARS, 0);
   const inversionMetaUSDTotal = dias.reduce((s, d) => s + d.inversionMetaUSD, 0);
   const totalCostosTotal      = dias.reduce((s, d) => s + d.totalCostos, 0);
@@ -269,6 +300,7 @@ function buildResumen(dias: DiaRentabilidad[]): ResumenRentabilidad {
     costoMercaderiaTotal,
     costoEnvioTotal,
     costoAgenciaTotal,
+    costoComisionTotal,
     inversionMetaARSTotal,
     inversionMetaUSDTotal,
     totalCostosTotal,

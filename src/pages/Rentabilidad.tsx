@@ -49,6 +49,8 @@ const RentTooltip = ({ active, payload, label }: any) => {
         <span>{fmtARS(d.costoMercaderia)}</span>
         <span style={{ color: '#64748b' }}>Envío+Agencia</span>
         <span>{fmtARS(d.costoEnvio + d.costoAgencia)}</span>
+        <span style={{ color: '#f97316' }}>Comisión</span>
+        <span>{fmtARS(d.costoComision)}</span>
         <span>Promos</span>
         <span>{d.totalPromos} ({d.promoA}A + {d.promoB}B)</span>
         <span>Margen</span>
@@ -252,7 +254,7 @@ export default function Rentabilidad() {
             title="Costo Total"
             value={fmtARS(resumen.totalCostosTotal)}
             icon={<Package size={18} />}
-            subtitle={`Merc. ${fmtARSShort(resumen.costoMercaderiaTotal)} | Envío ${fmtARSShort(resumen.costoEnvioTotal)} | Agencia ${fmtARSShort(resumen.costoAgenciaTotal)}`}
+            subtitle={`Merc. ${fmtARSShort(resumen.costoMercaderiaTotal)} | Envío ${fmtARSShort(resumen.costoEnvioTotal)} | Ag. ${fmtARSShort(resumen.costoAgenciaTotal)} | Com. ${fmtARSShort(resumen.costoComisionTotal)}`}
           />
           <div className="metric-card glass-panel" style={{ borderLeftColor: roasColor(resumen.roasPromedio) }}>
             <div className="metric-header">
@@ -317,6 +319,7 @@ export default function Rentabilidad() {
                   <th>Costo Merc.</th>
                   <th>Envío</th>
                   <th>Agencia</th>
+                  <th>Comisión</th>
                   <th>Meta (ARS)</th>
                   <th>Total Costos</th>
                   <th>Ganancia</th>
@@ -334,6 +337,7 @@ export default function Rentabilidad() {
                     <td>{fmtARS(d.costoMercaderia)}</td>
                     <td>{fmtARS(d.costoEnvio)}</td>
                     <td>{fmtARS(d.costoAgencia)}</td>
+                    <td>{fmtARS(d.costoComision)}</td>
                     <td>{fmtARS(d.inversionMetaARS)}</td>
                     <td>{fmtARS(d.totalCostos)}</td>
                     <td style={{ color: gananciaColor(d.gananciaNeta) }}>{fmtARS(d.gananciaNeta)}</td>
@@ -352,6 +356,7 @@ export default function Rentabilidad() {
                     <td>{fmtARS(resumen.costoMercaderiaTotal)}</td>
                     <td>{fmtARS(resumen.costoEnvioTotal)}</td>
                     <td>{fmtARS(resumen.costoAgenciaTotal)}</td>
+                    <td>{fmtARS(resumen.costoComisionTotal)}</td>
                     <td>{fmtARS(resumen.inversionMetaARSTotal)}</td>
                     <td>{fmtARS(resumen.totalCostosTotal)}</td>
                     <td style={{ color: gananciaColor(resumen.gananciaNeta) }}>{fmtARS(resumen.gananciaNeta)}</td>
