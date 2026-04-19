@@ -39,15 +39,22 @@ async function doSync(full: boolean): Promise<{ mode: string; orders: number }> 
   if (full) {
     const since = new Date(Date.now() - DAYS_BACK * 86_400_000).toISOString();
     const allOrders: any[] = [];
+    const BATCH = 10;
 
-    for (let page = 1; page <= 50; page++) {
-      const res = await fetch(`${TN_BASE}/orders?per_page=200&page=${page}&created_at_min=${since}`, { headers: TN_HDR });
-      if (!res.ok) break; // 404 = no hay más páginas
-      const data = await res.json() as any[];
-      if (!Array.isArray(data) || data.length === 0) break;
-      allOrders.push(...data.map(simplify));
-      const hasMore = (res.headers.get('Link') ?? '').includes('rel="next"');
-      if (!hasMore) break;
+    for (let batch = 0; batch < 10; batch++) {
+      const startPage = batch * BATCH + 1;
+      const pages = Array.from({ length: BATCH }, (_, i) => startPage + i);
+      const results = await Promise.all(pages.map(async page => {
+        const res = await fetch(`${TN_BASE}/orders?per_page=200&page=${page}&created_at_min=${since}`, { headers: TN_HDR });
+        if (!res.ok) return { orders: [], hasMore: false };
+        const data = await res.json() as any[];
+        const hasMore = (res.headers.get('Link') ?? '').includes('rel="next"');
+        return { orders: Array.isArray(data) ? data.map(simplify) : [], hasMore };
+      }));
+
+      for (const r of results) allOrders.push(...r.orders);
+      const lastWithMore = results[results.length - 1].hasMore;
+      if (!lastWithMore) break;
     }
 
     if (allOrders.length > 0) await upsertRows(allOrders);
