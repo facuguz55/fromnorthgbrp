@@ -38,28 +38,19 @@ async function doSync(full: boolean): Promise<{ mode: string; orders: number }> 
 
   if (full) {
     const since = new Date(Date.now() - DAYS_BACK * 86_400_000).toISOString();
-    const res1 = await fetch(`${TN_BASE}/orders?per_page=200&page=1&created_at_min=${since}`, { headers: TN_HDR });
-    if (!res1.ok) {
-      const body = await res1.text().catch(() => '');
-      if (res1.status === 404 && body.includes('Last page is 0')) return { mode: 'full', orders: 0 };
-      throw new Error(`TiendaNube ${res1.status}: ${body}`);
+    const allOrders: any[] = [];
+
+    for (let page = 1; page <= 50; page++) {
+      const res = await fetch(`${TN_BASE}/orders?per_page=200&page=${page}&created_at_min=${since}`, { headers: TN_HDR });
+      if (!res.ok) break; // 404 = no hay más páginas
+      const data = await res.json() as any[];
+      if (!Array.isArray(data) || data.length === 0) break;
+      allOrders.push(...data.map(simplify));
+      const hasMore = (res.headers.get('Link') ?? '').includes('rel="next"');
+      if (!hasMore) break;
     }
 
-    const data1 = await res1.json() as any[];
-    const hasMore = (res1.headers.get('Link') ?? '').includes('rel="next"');
-    let allOrders = data1.map(simplify);
-
-    if (hasMore) {
-      const pages = await Promise.all([2, 3, 4, 5, 6, 7, 8, 9, 10].map(async page => {
-        const res = await fetch(`${TN_BASE}/orders?per_page=200&page=${page}&created_at_min=${since}`, { headers: TN_HDR });
-        if (!res.ok) return [];
-        const data = await res.json() as any[];
-        return Array.isArray(data) ? data.map(simplify) : [];
-      }));
-      allOrders = allOrders.concat(...pages);
-    }
-
-    await upsertRows(allOrders);
+    if (allOrders.length > 0) await upsertRows(allOrders);
     return { mode: 'full', orders: allOrders.length };
   }
 
