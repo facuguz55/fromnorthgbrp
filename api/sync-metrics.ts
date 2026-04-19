@@ -38,8 +38,7 @@ async function doSync(full: boolean): Promise<{ mode: string; orders: number }> 
 
   if (full) {
     const since = new Date(Date.now() - DAYS_BACK * 86_400_000).toISOString();
-    const qs1 = new URLSearchParams({ per_page: '200', page: '1', created_at_min: since });
-    const res1 = await fetch(`${TN_BASE}/orders?${qs1}`, { headers: TN_HDR });
+    const res1 = await fetch(`${TN_BASE}/orders?per_page=200&page=1&created_at_min=${since}`, { headers: TN_HDR });
     if (!res1.ok) {
       const body = await res1.text().catch(() => '');
       throw new Error(`TiendaNube ${res1.status}: ${body}`);
@@ -51,8 +50,7 @@ async function doSync(full: boolean): Promise<{ mode: string; orders: number }> 
 
     if (hasMore) {
       const pages = await Promise.all([2, 3, 4, 5].map(async page => {
-        const qs = new URLSearchParams({ per_page: '200', page: String(page), created_at_min: since });
-        const res = await fetch(`${TN_BASE}/orders?${qs}`, { headers: TN_HDR });
+        const res = await fetch(`${TN_BASE}/orders?per_page=200&page=${page}&created_at_min=${since}`, { headers: TN_HDR });
         if (!res.ok) return [];
         const data = await res.json() as any[];
         return Array.isArray(data) ? data.map(simplify) : [];
@@ -66,8 +64,7 @@ async function doSync(full: boolean): Promise<{ mode: string; orders: number }> 
 
   // Incremental: últimas 2 horas para capturar cambios de estado de pago
   const since = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-  const qs = new URLSearchParams({ per_page: '200', page: '1', created_at_min: since });
-  const tnRes = await fetch(`${TN_BASE}/orders?${qs}`, { headers: TN_HDR });
+  const tnRes = await fetch(`${TN_BASE}/orders?per_page=200&page=1&created_at_min=${since}`, { headers: TN_HDR });
   if (!tnRes.ok) {
     const body = await tnRes.text().catch(() => '');
     throw new Error(`TiendaNube ${tnRes.status}: ${body}`);
