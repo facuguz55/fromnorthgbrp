@@ -40,7 +40,10 @@ async function doSync(full: boolean): Promise<{ mode: string; orders: number }> 
     const since = new Date(Date.now() - DAYS_BACK * 86_400_000).toISOString();
     const qs1 = new URLSearchParams({ per_page: '200', page: '1', created_at_min: since });
     const res1 = await fetch(`${TN_BASE}/orders?${qs1}`, { headers: TN_HDR });
-    if (!res1.ok) throw new Error(`TiendaNube ${res1.status}`);
+    if (!res1.ok) {
+      const body = await res1.text().catch(() => '');
+      throw new Error(`TiendaNube ${res1.status}: ${body}`);
+    }
 
     const data1 = await res1.json() as any[];
     const hasMore = (res1.headers.get('Link') ?? '').includes('rel="next"');
@@ -65,7 +68,10 @@ async function doSync(full: boolean): Promise<{ mode: string; orders: number }> 
   const since = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
   const qs = new URLSearchParams({ per_page: '200', page: '1', created_at_min: since });
   const tnRes = await fetch(`${TN_BASE}/orders?${qs}`, { headers: TN_HDR });
-  if (!tnRes.ok) throw new Error(`TiendaNube ${tnRes.status}`);
+  if (!tnRes.ok) {
+    const body = await tnRes.text().catch(() => '');
+    throw new Error(`TiendaNube ${tnRes.status}: ${body}`);
+  }
 
   const orders = ((await tnRes.json()) as any[]).map(simplify);
   if (orders.length > 0) await upsertRows(orders);
