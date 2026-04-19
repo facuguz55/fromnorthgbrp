@@ -63,8 +63,8 @@ async function doSync(full: boolean): Promise<{ mode: string; orders: number }> 
     return { mode: 'full', orders: allOrders.length };
   }
 
-  // Incremental: últimas 2 horas para capturar cambios de estado de pago
-  const since = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  // Incremental: últimas 24 horas para capturar nuevas órdenes y cambios de estado
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const tnRes = await fetch(`${TN_BASE}/orders?per_page=200&page=1&created_at_min=${since}`, { headers: TN_HDR });
   if (!tnRes.ok) {
     const body = await tnRes.text().catch(() => '');
