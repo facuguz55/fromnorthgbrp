@@ -41,6 +41,7 @@ async function doSync(full: boolean): Promise<{ mode: string; orders: number }> 
     const res1 = await fetch(`${TN_BASE}/orders?per_page=200&page=1&created_at_min=${since}`, { headers: TN_HDR });
     if (!res1.ok) {
       const body = await res1.text().catch(() => '');
+      if (res1.status === 404 && body.includes('Last page is 0')) return { mode: 'full', orders: 0 };
       throw new Error(`TiendaNube ${res1.status}: ${body}`);
     }
 
@@ -67,6 +68,8 @@ async function doSync(full: boolean): Promise<{ mode: string; orders: number }> 
   const tnRes = await fetch(`${TN_BASE}/orders?per_page=200&page=1&created_at_min=${since}`, { headers: TN_HDR });
   if (!tnRes.ok) {
     const body = await tnRes.text().catch(() => '');
+    // TiendaNube devuelve 404 "Last page is 0" cuando no hay órdenes en el período — es resultado vacío, no error
+    if (tnRes.status === 404 && body.includes('Last page is 0')) return { mode: 'incremental', orders: 0 };
     throw new Error(`TiendaNube ${tnRes.status}: ${body}`);
   }
 
