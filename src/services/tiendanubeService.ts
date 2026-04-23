@@ -325,6 +325,45 @@ async function tnFetch(
 const MAX_PAGES = 5;
 const DAYS_BACK = 90;
 
+const ALL_ORDERS_CACHE_KEY = 'tn_all_orders_cache';
+const ALL_ORDERS_TTL = 30 * 60 * 1000;
+
+export async function fetchAllTNOrders(
+  storeId: string,
+  token: string,
+  onProgress?: (n: number) => void,
+  forceRefresh = false,
+): Promise<TNOrder[]> {
+  if (!forceRefresh) {
+    try {
+      const raw = localStorage.getItem(ALL_ORDERS_CACHE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { data: TNOrder[]; ts: number };
+        if (Date.now() - parsed.ts < ALL_ORDERS_TTL && Array.isArray(parsed.data)) {
+          return parsed.data;
+        }
+      }
+    } catch {}
+  }
+
+  const all: TNOrder[] = [];
+  for (let page = 1; page <= 25; page++) {
+    const { data, hasMore } = await tnFetch(storeId, token, 'orders', {
+      per_page: '200',
+      page: String(page),
+    });
+    all.push(...(data as TNOrder[]));
+    onProgress?.(all.length);
+    if (!hasMore) break;
+  }
+
+  try {
+    localStorage.setItem(ALL_ORDERS_CACHE_KEY, JSON.stringify({ data: all, ts: Date.now() }));
+  } catch {}
+
+  return all;
+}
+
 async function fetchOrdersAll(
   storeId: string,
   token: string,

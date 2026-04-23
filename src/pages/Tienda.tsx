@@ -14,6 +14,9 @@ import {
   fetchTNCustomers,
   fetchTNCustomerOrders,
   fetchTNProducts,
+  fetchAllTNOrders,
+  paymentStatusLabel,
+  paymentStatusClass,
 } from '../services/tiendanubeService';
 import type { StockItemWithIds, TNCategory, TNCustomer, TNOrder, StockItem } from '../services/tiendanubeService';
 import {
@@ -29,11 +32,310 @@ import './Clientes.css';
 import './Cupones.css';
 import './Stock.css';
 
-type Tab = 'stock' | 'productos' | 'categorias' | 'clientes' | 'cupones';
+type Tab = 'ordenes' | 'stock' | 'productos' | 'categorias' | 'clientes' | 'cupones';
 
 interface Toast {
   type: 'ok' | 'err';
   msg: string;
+}
+
+// ── Órdenes ───────────────────────────────────────────────────────────────────
+
+const PAGE_SIZE = 50;
+
+type PagoFilter   = 'todos' | TNOrder['payment_status'];
+type EstadoFilter = 'todos' | TNOrder['status'];
+type OrdenesSort  = 'fecha_desc' | 'fecha_asc' | 'total_desc' | 'total_asc';
+
+function OrdenesTab() {
+  const [orders,       setOrders]       = useState<TNOrder[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [loadedCount,  setLoadedCount]  = useState(0);
+  const [error,        setError]        = useState<string | null>(null);
+  const [lastUpdated,  setLastUpdated]  = useState<Date | null>(null);
+  const [search,       setSearch]       = useState('');
+  const [filterPago,   setFilterPago]   = useState<PagoFilter>('todos');
+  const [filterEstado, setFilterEstado] = useState<EstadoFilter>('todos');
+  const [sort,         setSort]         = useState<OrdenesSort>('fecha_desc');
+  const [page,         setPage]         = useState(1);
+
+  const loadData = async (force = false) => {
+    setError(null);
+    setLoading(true);
+    setLoadedCount(0);
+    try {
+      const settings = getSettings();
+      const storeId  = settings?.tiendanubeStoreId?.trim() ?? '';
+      const token    = settings?.tiendanubeToken?.trim()    ?? '';
+      if (!storeId || !token) {
+        setError('Configurá tu Store ID y Access Token en Configuración → TiendaNube API.');
+        setLoading(false);
+        return;
+      }
+      const data = await fetchAllTNOrders(storeId, token, n => setLoadedCount(n), force);
+      setOrders(data);
+      setLastUpdated(new Date());
+    } catch {
+      setError('No se pudo cargar las órdenes. Verificá la conexión.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadData(); }, []);
+  useEffect(() => { setPage(1); }, [search, filterPago, filterEstado, sort]);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    const base = orders.filter(o => {
+      if (filterPago   !== 'todos' && o.payment_status !== filterPago)   return false;
+      if (filterEstado !== 'todos' && o.status         !== filterEstado) return false;
+      if (!q) return true;
+      return (
+        String(o.number).includes(q) ||
+        (o.customer?.name  ?? '').toLowerCase().includes(q) ||
+        (o.customer?.email ?? '').toLowerCase().includes(q) ||
+        o.products.some(p => p.name.toLowerCase().includes(q))
+      );
+    });
+    return base.sort((a, b) => {
+      if (sort === 'fecha_desc') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (sort === 'fecha_asc')  return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      if (sort === 'total_desc') return parseFloat(b.total) - parseFloat(a.total);
+      return parseFloat(a.total) - parseFloat(b.total);
+    });
+  }, [orders, search, filterPago, filterEstado, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const paidOrders      = useMemo(() => orders.filter(o => o.payment_status === 'paid' || o.payment_status === 'authorized'), [orders]);
+  const totalFacturado  = useMemo(() => paidOrders.reduce((s, o) => s + parseFloat(o.total), 0), [paidOrders]);
+  const pendientesCount = useMemo(() => orders.filter(o => o.payment_status === 'pending' || o.payment_status === 'unpaid').length, [orders]);
+  const canceladasCount = useMemo(() => orders.filter(o => o.status === 'cancelled').length, [orders]);
+
+  const pagoOptions: { key: PagoFilter; label: string }[] = [
+    { key: 'todos',          label: 'Todos'        },
+    { key: 'paid',           label: 'Pagado'       },
+    { key: 'authorized',     label: 'Autorizado'   },
+    { key: 'pending',        label: 'Pendiente'    },
+    { key: 'unpaid',         label: 'Sin pagar'    },
+    { key: 'refunded',       label: 'Reembolsado'  },
+    { key: 'voided',         label: 'Anulado'      },
+    { key: 'partially_paid', label: 'Pago parcial' },
+  ];
+
+  const estadoOptions: { key: EstadoFilter; label: string }[] = [
+    { key: 'todos',     label: 'Todos'     },
+    { key: 'open',      label: 'Abierta'   },
+    { key: 'closed',    label: 'Cerrada'   },
+    { key: 'cancelled', label: 'Cancelada' },
+  ];
+
+  if (loading && orders.length === 0) {
+    return (
+      <div className="tienda-state glass-panel">
+        <RefreshCw size={24} className="spinning" />
+        <span>
+          {loadedCount > 0
+            ? `Cargando... ${loadedCount.toLocaleString('es-AR')} órdenes`
+            : 'Conectando con TiendaNube...'}
+        </span>
+      </div>
+    );
+  }
+
+  if (error && orders.length === 0) {
+    return (
+      <div className="tienda-state tienda-state-error glass-panel">
+        <AlertCircle size={32} className="tienda-state-icon" />
+        <p>{error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Stats */}
+      <div className="clientes-stats">
+        <div className="clientes-stat glass-panel">
+          <span className="clientes-stat-value">{orders.length.toLocaleString('es-AR')}</span>
+          <span className="clientes-stat-label">Total órdenes</span>
+        </div>
+        <div className="clientes-stat glass-panel">
+          <span className="clientes-stat-value">{paidOrders.length.toLocaleString('es-AR')}</span>
+          <span className="clientes-stat-label">Pagadas</span>
+        </div>
+        <div className="clientes-stat glass-panel">
+          <span className="clientes-stat-value">{fmtARS(totalFacturado)}</span>
+          <span className="clientes-stat-label">Total facturado</span>
+        </div>
+        <div className="clientes-stat glass-panel">
+          <span className="clientes-stat-value">{pendientesCount}</span>
+          <span className="clientes-stat-label">Pendientes</span>
+        </div>
+        <div className="clientes-stat glass-panel">
+          <span className="clientes-stat-value">{canceladasCount}</span>
+          <span className="clientes-stat-label">Canceladas</span>
+        </div>
+      </div>
+
+      {/* Filtros */}
+      <div className="clientes-filters glass-panel">
+        <div className="clientes-search-box" style={{ flex: '1 1 280px', minWidth: 0 }}>
+          <Search size={14} className="clientes-search-icon" />
+          <input
+            type="text"
+            placeholder="Buscar por #orden, cliente, email o producto..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="clientes-search-input"
+          />
+          {search && (
+            <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '0 0.2rem' }} onClick={() => setSearch('')}>
+              <X size={13} />
+            </button>
+          )}
+        </div>
+
+        <div className="clientes-filter-group">
+          <span className="clientes-filter-label">Pago:</span>
+          <div className="clientes-filter-btns">
+            {pagoOptions.map(({ key, label }) => (
+              <button key={key} className={`clientes-filter-btn ${filterPago === key ? 'active' : ''}`} onClick={() => setFilterPago(key)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="clientes-filter-group">
+          <span className="clientes-filter-label">Estado:</span>
+          <div className="clientes-filter-btns">
+            {estadoOptions.map(({ key, label }) => (
+              <button key={key} className={`clientes-filter-btn ${filterEstado === key ? 'active' : ''}`} onClick={() => setFilterEstado(key)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="clientes-filter-group">
+          <span className="clientes-filter-label">Ordenar:</span>
+          <div className="clientes-filter-btns">
+            {([
+              { key: 'fecha_desc', label: 'Más recientes' },
+              { key: 'fecha_asc',  label: 'Más antiguas'  },
+              { key: 'total_desc', label: 'Mayor total'   },
+              { key: 'total_asc',  label: 'Menor total'   },
+            ] as { key: OrdenesSort; label: string }[]).map(({ key, label }) => (
+              <button key={key} className={`clientes-filter-btn ${sort === key ? 'active' : ''}`} onClick={() => setSort(key)}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginLeft: 'auto', flexShrink: 0 }}>
+          <span className="clientes-count-label">
+            {filtered.length !== orders.length
+              ? `${filtered.length.toLocaleString('es-AR')} de ${orders.length.toLocaleString('es-AR')}`
+              : `${orders.length.toLocaleString('es-AR')} órdenes`}
+          </span>
+          {lastUpdated && <span className="clientes-count-label">· {lastUpdated.toLocaleTimeString('es-AR')}</span>}
+          {loading && <RefreshCw size={13} className="spinning" style={{ color: 'var(--text-muted)' }} />}
+          <button className="btn-secondary tienda-refresh-btn" onClick={() => loadData(true)} disabled={loading}>
+            <RefreshCw size={14} className={loading ? 'spinning' : ''} />
+            Actualizar
+          </button>
+        </div>
+      </div>
+
+      {/* Tabla */}
+      {paginated.length === 0 ? (
+        <div className="tienda-state glass-panel">
+          <Package size={30} className="tienda-state-icon" />
+          <p>No hay órdenes que coincidan con los filtros.</p>
+        </div>
+      ) : (
+        <div className="tn-table-wrapper glass-panel" style={{ overflowX: 'auto' }}>
+          <table className="tn-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Orden</th>
+                <th>Cliente</th>
+                <th>Productos</th>
+                <th>Total</th>
+                <th>Pago</th>
+                <th>Estado</th>
+                <th>Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginated.map((o, i) => {
+                const globalIdx = (page - 1) * PAGE_SIZE + i + 1;
+                const fecha = new Date(o.created_at).toLocaleDateString('es-AR', {
+                  day: '2-digit', month: '2-digit', year: '2-digit',
+                  timeZone: 'America/Argentina/Buenos_Aires',
+                });
+                const hora = new Date(o.created_at).toLocaleTimeString('es-AR', {
+                  hour: '2-digit', minute: '2-digit',
+                  timeZone: 'America/Argentina/Buenos_Aires',
+                });
+                return (
+                  <tr key={o.id}>
+                    <td className="tn-td-num">{globalIdx}</td>
+                    <td className="tn-td-orden" style={{ fontWeight: 600 }}>#{o.number}</td>
+                    <td className="tn-td-cliente">
+                      <span className="tn-client-name">{o.customer?.name ?? '—'}</span>
+                      {o.customer?.email && <span className="tn-client-email">{o.customer.email}</span>}
+                    </td>
+                    <td className="tn-td-productos" title={o.products.map(p => p.name).join(', ')}>
+                      {o.products[0]?.name ?? '—'}
+                      {o.products.length > 1 && <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}> +{o.products.length - 1}</span>}
+                    </td>
+                    <td className="tn-td-total">{fmtARS(parseFloat(o.total))}</td>
+                    <td>
+                      <span className={`tn-badge ${paymentStatusClass(o.payment_status)}`}>
+                        {paymentStatusLabel(o.payment_status)}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`tn-badge ${
+                        o.status === 'open'      ? 'badge-indigo' :
+                        o.status === 'closed'    ? 'badge-green'  : 'badge-muted'
+                      }`}>
+                        {o.status === 'open' ? 'Abierta' : o.status === 'closed' ? 'Cerrada' : 'Cancelada'}
+                      </span>
+                    </td>
+                    <td className="tn-td-fecha">
+                      {fecha}
+                      <br />
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{hora}</span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Paginación */}
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', padding: '1.2rem 0', flexWrap: 'wrap' }}>
+          <button className="btn-secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem' }} onClick={() => setPage(1)} disabled={page === 1}>«</button>
+          <button className="btn-secondary" style={{ padding: '0.3rem 0.7rem', fontSize: '0.8rem' }} onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>‹ Anterior</button>
+          <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', padding: '0 0.5rem' }}>
+            Página {page} de {totalPages} · {filtered.length.toLocaleString('es-AR')} órdenes
+          </span>
+          <button className="btn-secondary" style={{ padding: '0.3rem 0.7rem', fontSize: '0.8rem' }} onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Siguiente ›</button>
+          <button className="btn-secondary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem' }} onClick={() => setPage(totalPages)} disabled={page === totalPages}>»</button>
+        </div>
+      )}
+    </>
+  );
 }
 
 // ── Productos ──────────────────────────────────────────────────────────────────
@@ -1507,9 +1809,10 @@ function CuponesTab() {
 // ── Main Component ─────────────────────────────────────────────────────────────
 
 export default function Tienda() {
-  const [tab, setTab] = useState<Tab>('stock');
+  const [tab, setTab] = useState<Tab>('ordenes');
 
   const tabLabels: { key: Tab; label: string }[] = [
+    { key: 'ordenes',    label: 'Órdenes' },
     { key: 'stock',      label: 'Stock' },
     { key: 'productos',  label: 'Productos' },
     { key: 'categorias', label: 'Categorías' },
@@ -1545,6 +1848,7 @@ export default function Tienda() {
       </div>
 
       {/* ── Tab Content ── */}
+      {tab === 'ordenes'    && <OrdenesTab />}
       {tab === 'stock'      && <StockTab />}
       {tab === 'productos'  && <ProductosTab />}
       {tab === 'categorias' && <CategoriasTab />}
