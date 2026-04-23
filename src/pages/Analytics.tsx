@@ -6,7 +6,7 @@ import {
 import {
   RefreshCw, Clock, Users, UserCheck, UserPlus,
   TrendingUp, ShoppingCart, ShoppingBag, Trophy, X, BarChart2,
-  History, Eye, MousePointerClick, CalendarRange,
+  History, CalendarRange,
 } from 'lucide-react';
 import { getSettings } from '../services/dataService';
 import {
@@ -14,9 +14,8 @@ import {
   getPersistedMetrics,
   humanizePaymentMethod,
   fetchAllTNOrders,
-  fetchTNPeriodStats,
 } from '../services/tiendanubeService';
-import type { TNMetrics, TNOrder, TNPeriodStats } from '../services/tiendanubeService';
+import type { TNMetrics, TNOrder } from '../services/tiendanubeService';
 import { useMonth } from '../context/MonthContext';
 import MonthSelector from '../components/MonthSelector';
 import '../components/Chart.css';
@@ -200,8 +199,6 @@ function HistoricoSection() {
   const [filtro,      setFiltro]      = useState<HistFiltro>('mes');
   const [customFrom,  setCustomFrom]  = useState('');
   const [customTo,    setCustomTo]    = useState('');
-  const [stats,       setStats]       = useState<TNPeriodStats | null>(null);
-  const [loadingStats,setLoadingStats]= useState(false);
 
   useEffect(() => {
     (async () => {
@@ -221,19 +218,6 @@ function HistoricoSection() {
     () => getARBounds(filtro, customFrom, customTo),
     [filtro, customFrom, customTo],
   );
-
-  useEffect(() => {
-    if (filtro === 'personalizado' && (!customFrom || !customTo)) return;
-    const settings = getSettings();
-    const storeId  = settings?.tiendanubeStoreId?.trim() ?? '';
-    const token    = settings?.tiendanubeToken?.trim()    ?? '';
-    if (!storeId || !token) return;
-    setLoadingStats(true);
-    setStats(null);
-    fetchTNPeriodStats(storeId, token, bounds.fromStr, bounds.toStr)
-      .then(s => setStats(s))
-      .finally(() => setLoadingStats(false));
-  }, [bounds.fromStr, bounds.toStr]);
 
   const filtered = useMemo(
     () => allOrders.filter(o =>
@@ -255,16 +239,6 @@ function HistoricoSection() {
   const totalFacturado  = useMemo(() => filtered.reduce((s, o) => s + parseFloat(o.total), 0), [filtered]);
   const ticketPromedio  = filtered.length > 0 ? totalFacturado / filtered.length : 0;
   const chartData       = useMemo(() => buildHistChart(filtered, bounds.from, bounds.to), [filtered, bounds]);
-
-  const conversionDisplay = (stats && stats.reach_checkout > 0)
-    ? `${((stats.buy_completed / stats.reach_checkout) * 100).toFixed(2)}%`
-    : allInRange.length > 0
-      ? `${((filtered.length / allInRange.length) * 100).toFixed(2)}%`
-      : '—';
-
-  const conversionLabel = (stats && stats.reach_checkout > 0)
-    ? 'Completaron checkout / llegaron al checkout'
-    : 'Órdenes pagadas / órdenes creadas';
 
   return (
     <section className="analytics-section" style={{ marginBottom: '0.5rem' }}>
@@ -328,20 +302,6 @@ function HistoricoSection() {
         <div className="clientes-stat glass-panel">
           <span className="clientes-stat-value">{fmtARS(ticketPromedio)}</span>
           <span className="clientes-stat-label">Ticket promedio</span>
-        </div>
-        <div className="clientes-stat glass-panel" title={conversionLabel}>
-          <span className="clientes-stat-value" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-            <MousePointerClick size={14} style={{ opacity: 0.6 }} />
-            {conversionDisplay}
-          </span>
-          <span className="clientes-stat-label">Conversión carrito</span>
-        </div>
-        <div className="clientes-stat glass-panel">
-          <span className="clientes-stat-value" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-            <Eye size={14} style={{ opacity: 0.6 }} />
-            {loadingStats ? '...' : stats?.sessions ? stats.sessions.toLocaleString('es-AR') : '—'}
-          </span>
-          <span className="clientes-stat-label">Visitas al sitio</span>
         </div>
       </div>
 
