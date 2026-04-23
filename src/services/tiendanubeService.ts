@@ -644,7 +644,8 @@ export async function fetchTNPeriodStats(
   to: string,
 ): Promise<TNPeriodStats | null> {
   try {
-    const { data } = await tnFetch(storeId, token, 'stats', { from, to });
+    const { data } = await tnFetch(storeId, token, 'stats', { date_min: from, date_max: to });
+    console.log('[fetchTNPeriodStats] raw:', JSON.stringify(data));
     if (!data || typeof data !== 'object') return null;
     const d = data as Record<string, unknown>;
     return {
@@ -653,7 +654,8 @@ export async function fetchTNPeriodStats(
       buy_completed:  Number(d['buy_completed']  ?? 0),
       reach_checkout: Number(d['reach_checkout'] ?? 0),
     };
-  } catch {
+  } catch (e: any) {
+    console.warn('[fetchTNPeriodStats] error:', e?.message);
     return null;
   }
 }
