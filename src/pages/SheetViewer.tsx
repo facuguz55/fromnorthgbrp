@@ -11,6 +11,7 @@ interface SheetViewerState {
   gid: string;
   title: string;
   subtitle?: string;
+  hiddenColumns?: string[];
 }
 
 export default function SheetViewer() {
@@ -18,9 +19,10 @@ export default function SheetViewer() {
   const location  = useLocation();
   const state     = (location.state ?? {}) as Partial<SheetViewerState>;
   const params    = new URLSearchParams(location.search);
-  const gid       = state.gid      ?? params.get('gid')      ?? '';
-  const title     = state.title    ?? params.get('title')    ?? 'Registros';
-  const subtitle  = state.subtitle ?? params.get('subtitle') ?? undefined;
+  const gid           = state.gid           ?? params.get('gid')      ?? '';
+  const title         = state.title         ?? params.get('title')    ?? 'Registros';
+  const subtitle      = state.subtitle      ?? params.get('subtitle') ?? undefined;
+  const hiddenColumns = state.hiddenColumns ?? [];
 
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(false);
@@ -54,6 +56,8 @@ export default function SheetViewer() {
   const filtered = rows.filter(row =>
     Object.values(row).some(v => v.toLowerCase().includes(search.toLowerCase()))
   );
+
+  const visibleHeaders = headers.filter(h => !hiddenColumns.includes(h));
 
   // Detectar columna "total" y sumar sus valores
   const totalHeader = headers.find(h => h.toLowerCase().includes('total'));
@@ -130,14 +134,14 @@ export default function SheetViewer() {
             <thead>
               <tr>
                 <th>#</th>
-                {headers.map(h => <th key={h}>{h}</th>)}
+                {visibleHeaders.map(h => <th key={h}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
               {filtered.map((row, i) => (
                 <tr key={i}>
                   <td className="sv-td-num">{i + 1}</td>
-                  {headers.map(h => (
+                  {visibleHeaders.map(h => (
                     <td key={h} className={h.toLowerCase().includes('email') ? 'sv-td-email' : 'sv-td-cell'}>
                       {h.toLowerCase().includes('email') && row[h]
                         ? <a href={`mailto:${row[h]}`} className="sv-email-link">{row[h]}</a>
