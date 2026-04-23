@@ -338,14 +338,22 @@ async function fetchOrdersFullFromSupabase(): Promise<TNOrder[] | null> {
         `${SB_URL}/rest/v1/tn_orders_full?select=id,number,status,payment_status,total,subtotal,total_shipping,discount,created_at,customer,products,payment_details,coupon&order=created_at.desc&limit=${PAGE}&offset=${offset}`,
         { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
       );
-      if (!res.ok) return null;
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        console.warn('[fetchOrdersFullFromSupabase] HTTP', res.status, errText);
+        return null;
+      }
       const rows = await res.json() as any[];
+      console.log(`[fetchOrdersFullFromSupabase] offset=${offset} rows=${rows?.length}`);
       if (!rows?.length) break;
       all.push(...rows);
       if (rows.length < PAGE) break;
       offset += PAGE;
     }
-    if (all.length === 0) return null;
+    if (all.length === 0) {
+      console.warn('[fetchOrdersFullFromSupabase] tabla vacía');
+      return null;
+    }
     return all.map(r => ({
       ...r,
       total:          String(r.total),
