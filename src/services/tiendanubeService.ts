@@ -328,12 +328,43 @@ const DAYS_BACK = 90;
 const ALL_ORDERS_CACHE_KEY = 'tn_all_orders_cache';
 const ALL_ORDERS_TTL = 30 * 60 * 1000;
 
+async function fetchOrdersFullFromSupabase(): Promise<TNOrder[] | null> {
+  try {
+    const all: any[] = [];
+    const PAGE = 1000;
+    let offset = 0;
+    while (true) {
+      const res = await fetch(
+        `${SB_URL}/rest/v1/tn_orders_full?select=id,number,status,payment_status,total,subtotal,total_shipping,discount,created_at,customer,products,payment_details,coupon&order=created_at.desc&limit=${PAGE}&offset=${offset}`,
+        { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
+      );
+      if (!res.ok) return null;
+      const rows = await res.json() as any[];
+      if (!rows?.length) break;
+      all.push(...rows);
+      if (rows.length < PAGE) break;
+      offset += PAGE;
+    }
+    if (all.length === 0) return null;
+    return all.map(r => ({
+      ...r,
+      total:          String(r.total),
+      subtotal:       String(r.subtotal),
+      total_shipping: String(r.total_shipping),
+      discount:       String(r.discount),
+    })) as TNOrder[];
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchAllTNOrders(
   storeId: string,
   token: string,
   onProgress?: (n: number) => void,
   forceRefresh = false,
 ): Promise<TNOrder[]> {
+  // Fast path 1: localStorage cache (30 min)
   if (!forceRefresh) {
     try {
       const raw = localStorage.getItem(ALL_ORDERS_CACHE_KEY);
@@ -346,6 +377,19 @@ export async function fetchAllTNOrders(
     } catch {}
   }
 
+  // Fast path 2: Supabase tn_orders_full (normalizada, sin límite de días)
+  if (!forceRefresh) {
+    const sbOrders = await fetchOrdersFullFromSupabase();
+    if (sbOrders && sbOrders.length > 0) {
+      onProgress?.(sbOrders.length);
+      try {
+        localStorage.setItem(ALL_ORDERS_CACHE_KEY, JSON.stringify({ data: sbOrders, ts: Date.now() }));
+      } catch {}
+      return sbOrders;
+    }
+  }
+
+  // Slow path: TiendaNube API directo (solo si Supabase no tiene datos)
   const all: TNOrder[] = [];
   for (let page = 1; page <= 25; page++) {
     const { data, hasMore } = await tnFetch(storeId, token, 'orders', {

@@ -37,8 +37,29 @@ const simplify = (o: any) => ({
   coupon: o.coupon ?? null,
 });
 
-async function doSync(full: boolean): Promise<{ mode: string; orders: number }> {
+async function doSync(full: boolean, all: boolean): Promise<{ mode: string; orders: number }> {
   const DAYS_BACK = 90;
+
+  // Modo "all": sincroniza TODA la historia sin restricción de fechas a tn_orders_full
+  if (all) {
+    const allOrders: any[] = [];
+    const BATCH = 5;
+    for (let batch = 0; batch < 5; batch++) {
+      const startPage = batch * BATCH + 1;
+      const pages = Array.from({ length: BATCH }, (_, i) => startPage + i);
+      const results = await Promise.all(pages.map(async page => {
+        const res = await fetch(`${TN_BASE}/orders?per_page=200&page=${page}`, { headers: TN_HDR });
+        if (!res.ok) return { orders: [], hasMore: false };
+        const data = await res.json() as any[];
+        const hasMore = (res.headers.get('Link') ?? '').includes('rel="next"');
+        return { orders: Array.isArray(data) ? data.map(simplify) : [], hasMore };
+      }));
+      for (const r of results) allOrders.push(...r.orders);
+      if (!results.some(r => r.hasMore)) break;
+    }
+    await upsertToOrdersFull(allOrders);
+    return { mode: 'all', orders: allOrders.length };
+  }
 
   if (full) {
     const since = new Date(Date.now() - DAYS_BACK * 86_400_000).toISOString();
@@ -81,10 +102,47 @@ async function doSync(full: boolean): Promise<{ mode: string; orders: number }> 
   return { mode: 'incremental', orders: orders.length };
 }
 
+async function upsertToOrdersFull(orders: any[]): Promise<void> {
+  if (orders.length === 0) return;
+  const now = new Date().toISOString();
+  const rows = orders.map(o => ({
+    id:              o.id,
+    number:          o.number,
+    status:          o.status,
+    payment_status:  o.payment_status,
+    total:           parseFloat(o.total)          || 0,
+    subtotal:        parseFloat(o.subtotal)        || 0,
+    total_shipping:  parseFloat(o.total_shipping)  || 0,
+    discount:        parseFloat(o.discount)        || 0,
+    created_at:      o.created_at,
+    customer:        o.customer,
+    products:        o.products,
+    payment_details: o.payment_details,
+    coupon:          o.coupon,
+    synced_at:       now,
+  }));
+  const BATCH = 200;
+  for (let i = 0; i < rows.length; i += BATCH) {
+    await fetch(`${SB_URL}/rest/v1/tn_orders_full`, {
+      method: 'POST',
+      headers: {
+        apikey: SB_KEY,
+        Authorization: `Bearer ${SB_KEY}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates',
+      },
+      body: JSON.stringify(rows.slice(i, i + BATCH)),
+    });
+  }
+}
+
 async function upsertRows(newOrders: any[]): Promise<void> {
   if (newOrders.length === 0) return;
 
-  // 1. Leer cache actual de tn_orders_cache
+  // Escribir en tn_orders_full (tabla normalizada, carga rápida)
+  await upsertToOrdersFull(newOrders);
+
+  // Escribir en tn_orders_cache (blob, compatibilidad con dashboard 90d)
   let existing: any[] = [];
   try {
     const cacheRes = await fetch(
@@ -97,9 +155,8 @@ async function upsertRows(newOrders: any[]): Promise<void> {
         existing = typeof rows[0].orders === 'string' ? JSON.parse(rows[0].orders) : rows[0].orders;
       }
     }
-  } catch { /* si falla, empieza con array vacío */ }
+  } catch { /* empieza con array vacío */ }
 
-  // 2. Merge: las nuevas órdenes sobreescriben las existentes por ID
   const map: Record<number, any> = {};
   for (const o of existing) map[o.id] = o;
   for (const o of newOrders) map[o.id] = o;
@@ -107,7 +164,6 @@ async function upsertRows(newOrders: any[]): Promise<void> {
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 
-  // 3. Escribir de vuelta en tn_orders_cache
   await fetch(`${SB_URL}/rest/v1/tn_orders_cache`, {
     method: 'POST',
     headers: {
@@ -130,10 +186,12 @@ export default async function handler(req: any, res: any): Promise<void> {
 
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
 
-  const full = (req.query?.full ?? new URL(req.url, 'http://x').searchParams.get('full')) === '1';
+  const params = new URL(req.url, 'http://x').searchParams;
+  const full = (req.query?.full ?? params.get('full')) === '1';
+  const all  = (req.query?.all  ?? params.get('all'))  === '1';
 
   try {
-    const result = await doSync(full);
+    const result = await doSync(full, all);
     res.status(200).json({ ok: true, ...result });
   } catch (err: any) {
     console.error('[sync-metrics] Error:', err?.message ?? err);
