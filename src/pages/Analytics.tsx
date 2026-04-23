@@ -244,26 +244,15 @@ function HistoricoSection() {
     [allOrders, bounds],
   );
 
-  const allInRange = useMemo(
-    () => allOrders.filter(o =>
-      new Date(o.created_at).getTime() >= bounds.from &&
-      new Date(o.created_at).getTime() <= bounds.to
-    ),
-    [allOrders, bounds],
-  );
-
   const totalFacturado  = useMemo(() => filtered.reduce((s, o) => s + parseFloat(o.total), 0), [filtered]);
   const ticketPromedio  = filtered.length > 0 ? totalFacturado / filtered.length : 0;
-  const conversionLocal = allInRange.length > 0 ? Math.round((filtered.length / allInRange.length) * 100) : 0;
   const chartData       = useMemo(() => buildHistChart(filtered, bounds.from, bounds.to), [filtered, bounds]);
 
-  const conversionDisplay = stats
-    ? (stats.reach_checkout > 0 ? `${Math.round((stats.buy_completed / stats.reach_checkout) * 100)}%` : '—')
-    : `${conversionLocal}%`;
+  const conversionDisplay = (stats && stats.reach_checkout > 0)
+    ? `${((stats.buy_completed / stats.reach_checkout) * 100).toFixed(2)}%`
+    : '—';
 
-  const conversionLabel = stats
-    ? 'Completaron checkout'
-    : 'Órdenes pagadas / total';
+  const conversionLabel = 'Completaron checkout / llegaron al checkout';
 
   return (
     <section className="analytics-section" style={{ marginBottom: '0.5rem' }}>
