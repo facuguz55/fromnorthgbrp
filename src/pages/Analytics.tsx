@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend,
+  Cell,
 } from 'recharts';
 import {
-  RefreshCw, Clock, Users, UserCheck, UserPlus,
-  TrendingUp, ShoppingCart, ShoppingBag, Trophy, X, BarChart2,
+  RefreshCw, Clock, UserCheck,
+  TrendingUp, ShoppingBag, Trophy, X, BarChart2,
   History, CalendarRange,
 } from 'lucide-react';
 import { getSettings } from '../services/dataService';
@@ -50,18 +50,6 @@ const DiaTooltip = ({ active, payload, label }: any) => {
   );
 };
 
-const MetodoTooltip = ({ active, payload }: any) => {
-  if (!active || !payload?.length) return null;
-  const d = payload[0].payload as MetodoPago;
-  return (
-    <div className="chart-tooltip">
-      <p className="chart-tooltip-label">{d.name}</p>
-      <p className="chart-tooltip-value" style={{ color: d.color }}>{d.value} órdenes</p>
-      <p className="chart-tooltip-sub">{d.porcentaje}% del total</p>
-    </div>
-  );
-};
-
 const HourTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
@@ -69,19 +57,6 @@ const HourTooltip = ({ active, payload, label }: any) => {
         <p className="chart-tooltip-label">{label}</p>
         <p className="chart-tooltip-value" style={{ color: '#06b6d4' }}>{payload[0].value}</p>
         <p className="chart-tooltip-sub">ventas en este horario</p>
-      </div>
-    );
-  }
-  return null;
-};
-
-const ClientesTooltip = ({ active, payload }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="chart-tooltip">
-        <p className="chart-tooltip-label">{payload[0].name}</p>
-        <p className="chart-tooltip-value" style={{ color: payload[0].fill }}>{payload[0].value}</p>
-        <p className="chart-tooltip-sub">clientes</p>
       </div>
     );
   }
@@ -462,14 +437,6 @@ export default function Analytics() {
     return { monthClientesNuevos, monthClientesRecurrentes };
   }, [monthOrders]);
 
-  const totalClientes      = monthClientesNuevos + monthClientesRecurrentes;
-  const pctNuevos          = totalClientes > 0 ? Math.round((monthClientesNuevos / totalClientes) * 100) : 0;
-  const pctRecurrentes     = totalClientes > 0 ? Math.round((monthClientesRecurrentes / totalClientes) * 100) : 0;
-  const clientesPieData    = [
-    { name: 'Nuevos',      value: monthClientesNuevos },
-    { name: 'Recurrentes', value: monthClientesRecurrentes },
-  ];
-
   // ── Hours from monthOrders ────────────────────────────────────────────────
   const monthVentasPorHora = useMemo(() => {
     const horaMap: Record<number, number> = {};
@@ -512,8 +479,6 @@ export default function Analytics() {
   }, [monthOrders]);
 
   const hasHoras    = monthVentasPorHora.some(h => h.value > 0);
-  const hasMetodos  = metodosConColor.length > 0;
-  const hasClientes = totalClientes > 0;
 
   const [showRecurrentes, setShowRecurrentes] = useState(false);
 
