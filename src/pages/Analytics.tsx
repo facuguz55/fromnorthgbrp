@@ -12,7 +12,6 @@ import { getSettings } from '../services/dataService';
 import {
   fetchTNMetrics,
   getPersistedMetrics,
-  humanizePaymentMethod,
   fetchAllTNOrders,
 } from '../services/tiendanubeService';
 import type { TNMetrics, TNOrder } from '../services/tiendanubeService';
@@ -21,13 +20,6 @@ import MonthSelector from '../components/MonthSelector';
 import '../components/Chart.css';
 import './Analytics.css';
 import './TiendanubeVentas.css';
-
-interface MetodoPago { name: string; value: number; porcentaje: number; color: string; }
-
-const PALETTE = [
-  '#06b6d4', '#6366f1', '#10b981', '#f59e0b',
-  '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6',
-];
 
 const fmtARS = (n: number) =>
   n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
@@ -401,41 +393,6 @@ export default function Analytics() {
       return parseInt(parts[1]) === selMonth && parseInt(parts[2]) === selYear;
     });
   }, [metrics, selectedMonthKey]);
-
-  // ── Methods from monthOrders ──────────────────────────────────────────────
-  const metodosConColor = useMemo((): MetodoPago[] => {
-    const metodoMap: Record<string, number> = {};
-    for (const o of monthOrders) {
-      const method = humanizePaymentMethod(
-        o.payment_details?.method ?? 'other',
-        o.payment_details?.credit_card_company,
-      );
-      metodoMap[method] = (metodoMap[method] ?? 0) + 1;
-    }
-    const total = Object.values(metodoMap).reduce((s, v) => s + v, 0);
-    return Object.entries(metodoMap)
-      .sort((a, b) => b[1] - a[1])
-      .map(([name, value], i) => ({
-        name, value,
-        porcentaje: total > 0 ? Math.round((value / total) * 100) : 0,
-        color: PALETTE[i % PALETTE.length],
-      }));
-  }, [monthOrders]);
-
-  // ── Clients from monthOrders ──────────────────────────────────────────────
-  const { monthClientesNuevos, monthClientesRecurrentes } = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const o of monthOrders) {
-      const key = o.customer?.email || o.customer?.name || '';
-      if (!key) continue;
-      map[key] = (map[key] ?? 0) + 1;
-    }
-    let monthClientesNuevos = 0, monthClientesRecurrentes = 0;
-    for (const cnt of Object.values(map)) {
-      if (cnt === 1) monthClientesNuevos++; else monthClientesRecurrentes++;
-    }
-    return { monthClientesNuevos, monthClientesRecurrentes };
-  }, [monthOrders]);
 
   // ── Hours from monthOrders ────────────────────────────────────────────────
   const monthVentasPorHora = useMemo(() => {
