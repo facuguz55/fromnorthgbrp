@@ -91,9 +91,10 @@ const ClientesTooltip = ({ active, payload }: any) => {
 
 // ── Histórico completo ────────────────────────────────────────────────────────
 
-type HistFiltro = 'ayer' | 'semana' | 'semana_pasada' | 'mes' | 'mes_pasado' | '90dias' | 'todo' | 'personalizado';
+type HistFiltro = 'hoy' | 'ayer' | 'semana' | 'semana_pasada' | 'mes' | 'mes_pasado' | '90dias' | 'todo' | 'personalizado';
 
 const HIST_LABELS: { key: HistFiltro; label: string }[] = [
+  { key: 'hoy',           label: 'Hoy'            },
   { key: 'ayer',          label: 'Ayer'           },
   { key: 'semana',        label: 'Esta semana'    },
   { key: 'semana_pasada', label: 'Semana pasada'  },
@@ -116,6 +117,8 @@ function getARBounds(filtro: HistFiltro, customFrom: string, customTo: string) {
   const sinceMon  = dow === 0 ? 6 : dow - 1;
 
   switch (filtro) {
+    case 'hoy':
+      return { from: todayMs, to: todayEndMs, fromStr: todayAR, toStr: todayAR };
     case 'ayer': {
       const y = new Date(todayMs - 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
       return { from: parse(y), to: parseEnd(y), fromStr: y, toStr: y };
