@@ -496,21 +496,28 @@ export async function fetchFNCouponOrders(
   storeId: string,
   token: string,
 ): Promise<FNCouponConversion[]> {
-  const all: TNOrder[] = [];
+  // Fast path: usar cache en memoria o Supabase antes de ir a TiendaNube
+  let all: TNOrder[] =
+    metricsCache?.data.orders ??
+    (await fetchSupabaseOrders()) ??
+    [];
 
-  for (let page = 1; page <= 20; page++) {
-    const { data, hasMore } = await tnFetch(storeId, token, 'orders', {
-      payment_status: 'paid',
-      per_page: '200',
-      page: String(page),
-    });
-    all.push(...(data as TNOrder[]));
-    if (!hasMore) break;
+  if (all.length === 0) {
+    for (let page = 1; page <= 20; page++) {
+      const { data, hasMore } = await tnFetch(storeId, token, 'orders', {
+        payment_status: 'paid',
+        per_page: '200',
+        page: String(page),
+      });
+      all.push(...(data as TNOrder[]));
+      if (!hasMore) break;
+    }
   }
 
   const result: FNCouponConversion[] = [];
 
   for (const order of all) {
+    if (order.payment_status !== 'paid' && order.payment_status !== 'authorized') continue;
     if (!order.coupon || order.coupon.length === 0) continue;
     const fnCoupon = order.coupon.find(c => c.code.toUpperCase().startsWith('FN'));
     if (!fnCoupon) continue;

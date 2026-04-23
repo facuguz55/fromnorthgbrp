@@ -124,6 +124,20 @@ export default function Dashboard() {
   const monthOrderCount     = monthOrders.length;
   const monthTicketPromedio = monthOrderCount > 0 ? monthTotal / monthOrderCount : 0;
 
+  const semanaOrderCount = useMemo(() => {
+    if (!metrics) return 0;
+    const AR_OFFSET = -3 * 60 * 60 * 1000;
+    const nowAR = Date.now() + AR_OFFSET;
+    const msPerDay = 86_400_000;
+    const todayStartMS = Math.floor(nowAR / msPerDay) * msPerDay - AR_OFFSET;
+    const arDow = new Date(nowAR).getUTCDay();
+    const weekStartMS = todayStartMS - (arDow === 0 ? 6 : arDow - 1) * msPerDay;
+    return metrics.orders.filter(o =>
+      (o.payment_status === 'paid' || o.payment_status === 'authorized') &&
+      new Date(o.created_at).getTime() >= weekStartMS
+    ).length;
+  }, [metrics]);
+
   // Últimas órdenes del mes seleccionado
   const ultimasOrdenes = useMemo(() => {
     return [...monthOrders]
@@ -285,6 +299,7 @@ export default function Dashboard() {
                 title={`Ventas ${monthLabel(selectedMonthKey)}`}
                 value={'$ ' + fmtInt(monthTotal)}
                 icon={<DollarSign size={18} />}
+                subtitle={`${monthOrderCount} orden${monthOrderCount !== 1 ? 'es' : ''}`}
               />
             </div>
             {isCurrentMonth ? (
@@ -293,13 +308,13 @@ export default function Dashboard() {
                   onClick={() => setActiveChart(prev => prev === 'hoy' ? null : 'hoy')}
                   style={cardActiveStyle('hoy')}
                 >
-                  <MetricCard title="Ventas Hoy" value={'$ ' + fmt(metrics.ventasHoy)} icon={<Activity size={18} />} subtitle={resets.labelHoy} />
+                  <MetricCard title="Ventas Hoy" value={'$ ' + fmt(metrics.ventasHoy)} icon={<Activity size={18} />} subtitle={`${metrics.ordenesHoy.length} orden${metrics.ordenesHoy.length !== 1 ? 'es' : ''} · ${resets.labelHoy}`} />
                 </div>
                 <div
                   onClick={() => setActiveChart(prev => prev === 'semana' ? null : 'semana')}
                   style={cardActiveStyle('semana')}
                 >
-                  <MetricCard title="Ventas Semana" value={'$ ' + fmt(metrics.ventasSemana)} icon={<CalendarDays size={18} />} subtitle={resets.labelSemana} />
+                  <MetricCard title="Ventas Semana" value={'$ ' + fmt(metrics.ventasSemana)} icon={<CalendarDays size={18} />} subtitle={`${semanaOrderCount} orden${semanaOrderCount !== 1 ? 'es' : ''} · ${resets.labelSemana}`} />
                 </div>
               </>
             ) : (
