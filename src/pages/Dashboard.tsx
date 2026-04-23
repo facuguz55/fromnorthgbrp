@@ -344,7 +344,7 @@ export default function Dashboard() {
               </Link>
               <Link
                 to="/sheet-viewer"
-                state={{ gid: GID_CONVERTIDOS, title: 'Seguimientos convertidos', subtitle: 'Clientes que completaron el seguimiento', hiddenColumns: ['UTM Campaign', 'Estado Orden', 'Fecha Click', 'Fecha Verificacion'] }}
+                state={{ gid: GID_CONVERTIDOS, title: 'Seguimientos convertidos', subtitle: 'Clientes que completaron el seguimiento', hiddenColumns: ['UTM Campaign', 'Estado Orden', 'Fecha Click', 'Fecha Verificacion', 'Fecha Verificación'] }}
                 className="metric-card-link"
               >
                 <MetricCard

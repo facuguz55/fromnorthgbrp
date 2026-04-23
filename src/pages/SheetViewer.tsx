@@ -57,7 +57,8 @@ export default function SheetViewer() {
     Object.values(row).some(v => v.toLowerCase().includes(search.toLowerCase()))
   );
 
-  const visibleHeaders = headers.filter(h => !hiddenColumns.includes(h));
+  const hiddenLower = hiddenColumns.map(c => c.toLowerCase().trim());
+  const visibleHeaders = headers.filter(h => !hiddenLower.includes(h.toLowerCase().trim()));
 
   // Detectar columna "total" y sumar sus valores
   const totalHeader = headers.find(h => h.toLowerCase().includes('total'));
