@@ -577,6 +577,35 @@ export async function fetchFNCouponOrders(
   return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
+export interface TNPeriodStats {
+  sessions: number;
+  pageviews: number;
+  buy_completed: number;
+  reach_checkout: number;
+}
+
+/** Estadísticas de la tienda para un período (visitas, conversión). Retorna null si el endpoint no está disponible. */
+export async function fetchTNPeriodStats(
+  storeId: string,
+  token: string,
+  from: string,
+  to: string,
+): Promise<TNPeriodStats | null> {
+  try {
+    const { data } = await tnFetch(storeId, token, 'stats', { from, to });
+    if (!data || typeof data !== 'object') return null;
+    const d = data as Record<string, unknown>;
+    return {
+      sessions:       Number(d['sessions']       ?? d['visits']   ?? 0),
+      pageviews:      Number(d['pageviews']      ?? 0),
+      buy_completed:  Number(d['buy_completed']  ?? 0),
+      reach_checkout: Number(d['reach_checkout'] ?? 0),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchTNCategories(storeId: string, token: string): Promise<TNCategory[]> {
   const { data } = await tnFetch(storeId, token, 'categories', { per_page: '200' });
   return data as TNCategory[];

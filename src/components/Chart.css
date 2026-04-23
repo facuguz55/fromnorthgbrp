@@ -56,7 +56,8 @@
   white-space: nowrap;
 }
 
-.chart-badge.bg-indigo {
+.chart-badge.bg-indigo,
+.chart-badge-indigo {
   background: rgba(99, 102, 241, 0.1);
   color: #818cf8;
   border-color: rgba(99, 102, 241, 0.2);

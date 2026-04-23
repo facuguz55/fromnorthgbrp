@@ -6,14 +6,17 @@ import {
 import {
   RefreshCw, Clock, Users, UserCheck, UserPlus,
   TrendingUp, ShoppingCart, ShoppingBag, Trophy, X, BarChart2,
+  History, Eye, MousePointerClick, CalendarRange,
 } from 'lucide-react';
 import { getSettings } from '../services/dataService';
 import {
   fetchTNMetrics,
   getPersistedMetrics,
   humanizePaymentMethod,
+  fetchAllTNOrders,
+  fetchTNPeriodStats,
 } from '../services/tiendanubeService';
-import type { TNMetrics } from '../services/tiendanubeService';
+import type { TNMetrics, TNOrder, TNPeriodStats } from '../services/tiendanubeService';
 import { useMonth } from '../context/MonthContext';
 import MonthSelector from '../components/MonthSelector';
 import '../components/Chart.css';
@@ -85,6 +88,307 @@ const ClientesTooltip = ({ active, payload }: any) => {
   }
   return null;
 };
+
+// ── Histórico completo ────────────────────────────────────────────────────────
+
+type HistFiltro = 'ayer' | 'semana' | 'semana_pasada' | 'mes' | 'mes_pasado' | '90dias' | 'todo' | 'personalizado';
+
+const HIST_LABELS: { key: HistFiltro; label: string }[] = [
+  { key: 'ayer',          label: 'Ayer'           },
+  { key: 'semana',        label: 'Esta semana'    },
+  { key: 'semana_pasada', label: 'Semana pasada'  },
+  { key: 'mes',           label: 'Este mes'       },
+  { key: 'mes_pasado',    label: 'Mes pasado'     },
+  { key: '90dias',        label: 'Últimos 90 días'},
+  { key: 'todo',          label: 'Todo'           },
+  { key: 'personalizado', label: 'Personalizado'  },
+];
+
+function getARBounds(filtro: HistFiltro, customFrom: string, customTo: string) {
+  const todayAR = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
+  const parse   = (s: string) => new Date(`${s}T00:00:00.000-03:00`).getTime();
+  const parseEnd= (s: string) => new Date(`${s}T23:59:59.999-03:00`).getTime();
+
+  const todayMs   = parse(todayAR);
+  const todayEndMs= parseEnd(todayAR);
+  const [ty, tm]  = todayAR.split('-').map(Number);
+  const dow       = new Date(todayMs).getDay();
+  const sinceMon  = dow === 0 ? 6 : dow - 1;
+
+  switch (filtro) {
+    case 'ayer': {
+      const y = new Date(todayMs - 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
+      return { from: parse(y), to: parseEnd(y), fromStr: y, toStr: y };
+    }
+    case 'semana': {
+      const mon = new Date(todayMs - sinceMon * 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
+      return { from: parse(mon), to: todayEndMs, fromStr: mon, toStr: todayAR };
+    }
+    case 'semana_pasada': {
+      const thisMon = new Date(todayMs - sinceMon * 86400000);
+      const lastMon = new Date(thisMon.getTime() - 7 * 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
+      const lastSun = new Date(thisMon.getTime() - 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
+      return { from: parse(lastMon), to: parseEnd(lastSun), fromStr: lastMon, toStr: lastSun };
+    }
+    case 'mes': {
+      const f = `${ty}-${String(tm).padStart(2, '0')}-01`;
+      return { from: parse(f), to: todayEndMs, fromStr: f, toStr: todayAR };
+    }
+    case 'mes_pasado': {
+      const lm = tm === 1 ? 12 : tm - 1;
+      const ly = tm === 1 ? ty - 1 : ty;
+      const days = new Date(ly, lm, 0).getDate();
+      const f = `${ly}-${String(lm).padStart(2, '0')}-01`;
+      const t = `${ly}-${String(lm).padStart(2, '0')}-${String(days).padStart(2, '0')}`;
+      return { from: parse(f), to: parseEnd(t), fromStr: f, toStr: t };
+    }
+    case '90dias': {
+      const f = new Date(todayMs - 89 * 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' });
+      return { from: parse(f), to: todayEndMs, fromStr: f, toStr: todayAR };
+    }
+    case 'personalizado': {
+      const f = customFrom || todayAR;
+      const t = customTo   || todayAR;
+      return { from: parse(f), to: parseEnd(t), fromStr: f, toStr: t };
+    }
+    default: // todo
+      return { from: 0, to: todayEndMs, fromStr: '2000-01-01', toStr: todayAR };
+  }
+}
+
+function buildHistChart(orders: TNOrder[], fromMs: number, toMs: number) {
+  const TZ = 'America/Argentina/Buenos_Aires';
+  const monthly = (toMs - fromMs) > 80 * 86400000;
+  const map: Record<string, number> = {};
+
+  for (const o of orders) {
+    const t = new Date(o.created_at).getTime();
+    if (t < fromMs || t > toMs) continue;
+    const key = monthly
+      ? new Date(o.created_at).toLocaleDateString('en-CA', { year: 'numeric', month: '2-digit', timeZone: TZ }).slice(0, 7)
+      : new Date(o.created_at).toLocaleDateString('en-CA', { timeZone: TZ });
+    map[key] = (map[key] ?? 0) + parseFloat(o.total);
+  }
+
+  return Object.entries(map)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([key, value]) => {
+      const label = monthly
+        ? (() => { const [y, m] = key.split('-').map(Number); return new Date(y, m - 1).toLocaleDateString('es-AR', { month: 'short', year: '2-digit' }); })()
+        : (() => { const [, m, d] = key.split('-').map(Number); return `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}`; })();
+      return { name: label, value };
+    });
+}
+
+const HistTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="chart-tooltip">
+      <p className="chart-tooltip-label">{label}</p>
+      <p className="chart-tooltip-value" style={{ color: '#6366f1' }}>{fmtARS(payload[0].value)}</p>
+    </div>
+  );
+};
+
+function HistoricoSection() {
+  const [allOrders,   setAllOrders]   = useState<TNOrder[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [loadedCount, setLoadedCount] = useState(0);
+  const [filtro,      setFiltro]      = useState<HistFiltro>('mes');
+  const [customFrom,  setCustomFrom]  = useState('');
+  const [customTo,    setCustomTo]    = useState('');
+  const [stats,       setStats]       = useState<TNPeriodStats | null>(null);
+  const [loadingStats,setLoadingStats]= useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const settings = getSettings();
+      const storeId  = settings?.tiendanubeStoreId?.trim() ?? '';
+      const token    = settings?.tiendanubeToken?.trim()    ?? '';
+      if (!storeId || !token) { setLoading(false); return; }
+      try {
+        const data = await fetchAllTNOrders(storeId, token, n => setLoadedCount(n));
+        setAllOrders(data);
+      } catch { /* silent */ }
+      finally { setLoading(false); }
+    })();
+  }, []);
+
+  const bounds = useMemo(
+    () => getARBounds(filtro, customFrom, customTo),
+    [filtro, customFrom, customTo],
+  );
+
+  useEffect(() => {
+    if (filtro === 'personalizado' && (!customFrom || !customTo)) return;
+    const settings = getSettings();
+    const storeId  = settings?.tiendanubeStoreId?.trim() ?? '';
+    const token    = settings?.tiendanubeToken?.trim()    ?? '';
+    if (!storeId || !token) return;
+    setLoadingStats(true);
+    setStats(null);
+    fetchTNPeriodStats(storeId, token, bounds.fromStr, bounds.toStr)
+      .then(s => setStats(s))
+      .finally(() => setLoadingStats(false));
+  }, [bounds.fromStr, bounds.toStr]);
+
+  const filtered = useMemo(
+    () => allOrders.filter(o =>
+      (o.payment_status === 'paid' || o.payment_status === 'authorized') &&
+      new Date(o.created_at).getTime() >= bounds.from &&
+      new Date(o.created_at).getTime() <= bounds.to
+    ),
+    [allOrders, bounds],
+  );
+
+  const allInRange = useMemo(
+    () => allOrders.filter(o =>
+      new Date(o.created_at).getTime() >= bounds.from &&
+      new Date(o.created_at).getTime() <= bounds.to
+    ),
+    [allOrders, bounds],
+  );
+
+  const totalFacturado  = useMemo(() => filtered.reduce((s, o) => s + parseFloat(o.total), 0), [filtered]);
+  const ticketPromedio  = filtered.length > 0 ? totalFacturado / filtered.length : 0;
+  const conversionLocal = allInRange.length > 0 ? Math.round((filtered.length / allInRange.length) * 100) : 0;
+  const chartData       = useMemo(() => buildHistChart(filtered, bounds.from, bounds.to), [filtered, bounds]);
+
+  const conversionDisplay = stats
+    ? (stats.reach_checkout > 0 ? `${Math.round((stats.buy_completed / stats.reach_checkout) * 100)}%` : '—')
+    : `${conversionLocal}%`;
+
+  const conversionLabel = stats
+    ? 'Completaron checkout'
+    : 'Órdenes pagadas / total';
+
+  return (
+    <section className="analytics-section" style={{ marginBottom: '0.5rem' }}>
+      <div className="section-title-row">
+        <History size={18} className="section-icon" />
+        <h2>Histórico completo</h2>
+        {loading && <RefreshCw size={13} className="spinning" style={{ color: 'var(--text-muted)', marginLeft: '0.5rem' }} />}
+        {loading && loadedCount > 0 && (
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+            {loadedCount.toLocaleString('es-AR')} órdenes
+          </span>
+        )}
+      </div>
+      <p className="section-desc">
+        Toda la historia de la tienda sin restricción de tiempo ·{' '}
+        {allOrders.length > 0 && <strong>{allOrders.length.toLocaleString('es-AR')} órdenes totales</strong>}
+      </p>
+
+      {/* Filtros */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1rem' }}>
+        {HIST_LABELS.map(({ key, label }) => (
+          <button
+            key={key}
+            className={`clientes-filter-btn ${filtro === key ? 'active' : ''}`}
+            onClick={() => setFiltro(key)}
+          >{label}</button>
+        ))}
+      </div>
+
+      {filtro === 'personalizado' && (
+        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <CalendarRange size={14} style={{ color: 'var(--text-muted)' }} />
+          <input
+            type="date"
+            className="form-input"
+            style={{ width: 'auto', padding: '0.35rem 0.6rem', fontSize: '0.82rem' }}
+            value={customFrom}
+            onChange={e => setCustomFrom(e.target.value)}
+          />
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>→</span>
+          <input
+            type="date"
+            className="form-input"
+            style={{ width: 'auto', padding: '0.35rem 0.6rem', fontSize: '0.82rem' }}
+            value={customTo}
+            onChange={e => setCustomTo(e.target.value)}
+          />
+        </div>
+      )}
+
+      {/* Métricas */}
+      <div className="clientes-stats" style={{ marginBottom: '1rem' }}>
+        <div className="clientes-stat glass-panel">
+          <span className="clientes-stat-value">{fmtARS(totalFacturado)}</span>
+          <span className="clientes-stat-label">Facturado</span>
+        </div>
+        <div className="clientes-stat glass-panel">
+          <span className="clientes-stat-value">{filtered.length.toLocaleString('es-AR')}</span>
+          <span className="clientes-stat-label">Órdenes pagadas</span>
+        </div>
+        <div className="clientes-stat glass-panel">
+          <span className="clientes-stat-value">{fmtARS(ticketPromedio)}</span>
+          <span className="clientes-stat-label">Ticket promedio</span>
+        </div>
+        <div className="clientes-stat glass-panel" title={conversionLabel}>
+          <span className="clientes-stat-value" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+            <MousePointerClick size={14} style={{ opacity: 0.6 }} />
+            {conversionDisplay}
+          </span>
+          <span className="clientes-stat-label">Conversión carrito</span>
+        </div>
+        <div className="clientes-stat glass-panel">
+          <span className="clientes-stat-value" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+            <Eye size={14} style={{ opacity: 0.6 }} />
+            {loadingStats ? '...' : stats?.sessions ? stats.sessions.toLocaleString('es-AR') : '—'}
+          </span>
+          <span className="clientes-stat-label">Visitas al sitio</span>
+        </div>
+      </div>
+
+      {/* Gráfico */}
+      <div className="chart-container glass-panel analytics-chart-tall">
+        <div className="chart-header">
+          <div className="chart-header-row">
+            <span className="chart-title">
+              {(bounds.to - bounds.from) > 80 * 86400000 ? 'Ventas por mes' : 'Ventas por día'}
+            </span>
+            <span className="chart-badge chart-badge-indigo">Histórico</span>
+          </div>
+          <span className="chart-subtitle">
+            {filtered.length.toLocaleString('es-AR')} órdenes · {fmtARS(totalFacturado)}
+          </span>
+        </div>
+        {chartData.length > 0 ? (
+          <div className="chart-wrapper">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                <XAxis
+                  dataKey="name"
+                  stroke="transparent"
+                  tick={{ fill: '#475569', fontSize: 10, fontFamily: 'Nunito, Inter, sans-serif' }}
+                  tickLine={false}
+                  axisLine={false}
+                  interval="preserveStartEnd"
+                />
+                <YAxis
+                  stroke="transparent"
+                  tick={{ fill: '#475569', fontSize: 10, fontFamily: 'Nunito, Inter, sans-serif' }}
+                  tickLine={false}
+                  axisLine={false}
+                  width={60}
+                  tickFormatter={v => `$${(v / 1000).toFixed(0)}k`}
+                />
+                <Tooltip content={<HistTooltip />} cursor={{ fill: 'rgba(99,102,241,0.06)' }} />
+                <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="chart-empty">
+            <span>{loading ? `Cargando ${loadedCount > 0 ? loadedCount.toLocaleString('es-AR') + ' órdenes...' : '...'}` : 'Sin ventas en este período'}</span>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -307,6 +611,9 @@ export default function Analytics() {
           {loading || syncing ? 'Actualizando...' : 'Actualizar'}
         </button>
       </header>
+
+      {/* ══ Histórico completo ══════════════════════════════════════════════ */}
+      <HistoricoSection />
 
       <MonthSelector availableMonths={availableMonths} />
 
