@@ -123,7 +123,7 @@ async function upsertToOrdersFull(orders: any[]): Promise<void> {
   }));
   const BATCH = 200;
   for (let i = 0; i < rows.length; i += BATCH) {
-    await fetch(`${SB_URL}/rest/v1/tn_orders_full`, {
+    const r = await fetch(`${SB_URL}/rest/v1/tn_orders_full`, {
       method: 'POST',
       headers: {
         apikey: SB_KEY,
@@ -133,6 +133,11 @@ async function upsertToOrdersFull(orders: any[]): Promise<void> {
       },
       body: JSON.stringify(rows.slice(i, i + BATCH)),
     });
+    if (!r.ok) {
+      const errBody = await r.text().catch(() => '');
+      console.error(`[upsertToOrdersFull] batch ${i} HTTP ${r.status}:`, errBody);
+      throw new Error(`Supabase upsert error ${r.status}: ${errBody}`);
+    }
   }
 }
 
