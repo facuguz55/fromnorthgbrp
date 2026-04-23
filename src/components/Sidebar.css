@@ -31,9 +31,10 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-weight: 800;
   font-size: 1.2rem;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.03em;
   color: var(--text-primary);
 }
 
@@ -131,15 +132,29 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  background: conic-gradient(from 180deg, var(--accent-primary), var(--accent-secondary), #ec4899, var(--accent-primary));
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 800;
   color: #fff;
   flex-shrink: 0;
   letter-spacing: 0.02em;
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.35);
+  position: relative;
+}
+
+.user-avatar::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  background: conic-gradient(from 180deg, var(--accent-primary), var(--accent-secondary), #ec4899, var(--accent-primary));
+  z-index: -1;
+  filter: blur(4px);
+  opacity: 0.5;
 }
 
 .user-info {
@@ -379,18 +394,18 @@
     transform: translateY(-1px);
   }
 
-  /* Indicador superior: línea fina sobre el ícono activo */
+  /* Indicador superior: pill sobre el ícono activo */
   .nav-link.active::before {
     content: '';
     position: absolute;
     top: 0;
     left: 50%;
     transform: translateX(-50%);
-    width: 22px;
-    height: 2px;
-    background: var(--accent-primary);
-    border-radius: 0 0 3px 3px;
-    box-shadow: 0 0 8px rgba(6, 182, 212, 0.7);
+    width: 32px;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent-primary), #818cf8);
+    border-radius: 0 0 4px 4px;
+    box-shadow: 0 0 10px rgba(6, 182, 212, 0.8), 0 2px 8px rgba(6, 182, 212, 0.4);
   }
 
   /* ── Sidebar bottom (Settings + Notas) ── */

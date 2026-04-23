@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
 import {
@@ -314,27 +314,40 @@ function HistoricoSection() {
         {chartData.length > 0 ? (
           <div className="chart-wrapper">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="histGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%"   stopColor="#6366f1" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="#6366f1" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
                 <XAxis
                   dataKey="name"
                   stroke="transparent"
-                  tick={{ fill: '#475569', fontSize: 10, fontFamily: 'Nunito, Inter, sans-serif' }}
+                  tick={{ fill: '#475569', fontSize: 10, fontFamily: 'Inter, sans-serif' }}
                   tickLine={false}
                   axisLine={false}
                   interval="preserveStartEnd"
                 />
                 <YAxis
                   stroke="transparent"
-                  tick={{ fill: '#475569', fontSize: 10, fontFamily: 'Nunito, Inter, sans-serif' }}
+                  tick={{ fill: '#475569', fontSize: 10, fontFamily: 'Inter, sans-serif' }}
                   tickLine={false}
                   axisLine={false}
                   width={60}
                   tickFormatter={v => `$${(v / 1000).toFixed(0)}k`}
                 />
-                <Tooltip content={<HistTooltip />} cursor={{ fill: 'rgba(99,102,241,0.06)' }} />
-                <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
-              </BarChart>
+                <Tooltip content={<HistTooltip />} cursor={{ stroke: 'rgba(99,102,241,0.3)', strokeWidth: 1 }} />
+                <Area
+                  dataKey="value"
+                  stroke="#6366f1"
+                  strokeWidth={2}
+                  fill="url(#histGrad)"
+                  dot={false}
+                  activeDot={{ r: 4, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
+                />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         ) : (
@@ -596,14 +609,14 @@ export default function Analytics() {
                   <XAxis
                     dataKey="name"
                     stroke="transparent"
-                    tick={{ fill: '#475569', fontSize: 10, fontFamily: 'Nunito, Inter, sans-serif' }}
+                    tick={{ fill: '#475569', fontSize: 10, fontFamily: 'Inter, sans-serif' }}
                     tickLine={false}
                     axisLine={false}
                     interval="preserveStartEnd"
                   />
                   <YAxis
                     stroke="transparent"
-                    tick={{ fill: '#475569', fontSize: 10, fontFamily: 'Nunito, Inter, sans-serif' }}
+                    tick={{ fill: '#475569', fontSize: 10, fontFamily: 'Inter, sans-serif' }}
                     tickLine={false}
                     axisLine={false}
                     width={60}
@@ -645,7 +658,7 @@ export default function Analytics() {
                   <XAxis
                     dataKey="name"
                     stroke="transparent"
-                    tick={{ fill: '#475569', fontSize: 10, fontFamily: 'Nunito, Inter, sans-serif' }}
+                    tick={{ fill: '#475569', fontSize: 10, fontFamily: 'Inter, sans-serif' }}
                     tickLine={false}
                     axisLine={false}
                     interval={1}
@@ -653,7 +666,7 @@ export default function Analytics() {
                   <YAxis
                     allowDecimals={false}
                     stroke="transparent"
-                    tick={{ fill: '#475569', fontSize: 11, fontFamily: 'Nunito, Inter, sans-serif' }}
+                    tick={{ fill: '#475569', fontSize: 11, fontFamily: 'Inter, sans-serif' }}
                     tickLine={false}
                     axisLine={false}
                     width={32}

@@ -401,14 +401,14 @@ export default function Ruleta() {
                       <XAxis
                         dataKey="name"
                         stroke="transparent"
-                        tick={{ fill: '#475569', fontSize: 11, fontFamily: 'Nunito, Inter, sans-serif' }}
+                        tick={{ fill: '#475569', fontSize: 11, fontFamily: 'Inter, sans-serif' }}
                         tickLine={false}
                         axisLine={false}
                       />
                       <YAxis
                         allowDecimals={false}
                         stroke="transparent"
-                        tick={{ fill: '#475569', fontSize: 11, fontFamily: 'Nunito, Inter, sans-serif' }}
+                        tick={{ fill: '#475569', fontSize: 11, fontFamily: 'Inter, sans-serif' }}
                         tickLine={false}
                         axisLine={false}
                         width={28}

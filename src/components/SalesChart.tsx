@@ -84,7 +84,7 @@ export default function SalesChart({ data }: SalesChartProps) {
             <XAxis
               dataKey="name"
               stroke="transparent"
-              tick={{ fill: '#475569', fontSize: 11, fontFamily: 'Nunito, Inter, sans-serif' }}
+              tick={{ fill: '#475569', fontSize: 11, fontFamily: 'Inter, sans-serif' }}
               tickLine={false}
               axisLine={false}
               interval="preserveStartEnd"
@@ -94,7 +94,7 @@ export default function SalesChart({ data }: SalesChartProps) {
               yAxisId="ventas"
               tickFormatter={formatMoney}
               stroke="transparent"
-              tick={{ fill: '#475569', fontSize: 11, fontFamily: 'Nunito, Inter, sans-serif' }}
+              tick={{ fill: '#475569', fontSize: 11, fontFamily: 'Inter, sans-serif' }}
               tickLine={false}
               axisLine={false}
               width={48}
@@ -106,7 +106,7 @@ export default function SalesChart({ data }: SalesChartProps) {
                 orientation="right"
                 tickFormatter={formatMoney}
                 stroke="transparent"
-                tick={{ fill: '#475569', fontSize: 11, fontFamily: 'Nunito, Inter, sans-serif' }}
+                tick={{ fill: '#475569', fontSize: 11, fontFamily: 'Inter, sans-serif' }}
                 tickLine={false}
                 axisLine={false}
                 width={48}
