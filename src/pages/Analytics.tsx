@@ -228,13 +228,6 @@ function HistoricoSection() {
     [allOrders, bounds],
   );
 
-  const allInRange = useMemo(
-    () => allOrders.filter(o =>
-      new Date(o.created_at).getTime() >= bounds.from &&
-      new Date(o.created_at).getTime() <= bounds.to
-    ),
-    [allOrders, bounds],
-  );
 
   const totalFacturado  = useMemo(() => filtered.reduce((s, o) => s + parseFloat(o.total), 0), [filtered]);
   const ticketPromedio  = filtered.length > 0 ? totalFacturado / filtered.length : 0;
