@@ -234,11 +234,14 @@ const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 
 async function fetchSupabaseOrders(): Promise<TNOrder[] | null> {
   try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 7000);
     // Leer órdenes desde tn_orders_cache (fila "main" con el JSON de todas las órdenes)
     const res = await fetch(
       `${SB_URL}/rest/v1/tn_orders_cache?select=orders&id=eq.main&limit=1`,
-      { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
+      { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` }, signal: ctrl.signal }
     );
+    clearTimeout(tid);
     if (!res.ok) return null;
     const rows = await res.json() as any[];
     if (!rows?.length || !rows[0]?.orders) return null;
@@ -306,7 +309,10 @@ async function tnFetch(
 
   // Intentar directo primero (TiendaNube soporta CORS)
   try {
-    const res = await fetch(`${TN_BASE}/${storeId}/${path}?${qs}`, { headers: tnHeaders(token) });
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 15000);
+    const res = await fetch(`${TN_BASE}/${storeId}/${path}?${qs}`, { headers: tnHeaders(token), signal: ctrl.signal });
+    clearTimeout(tid);
     return await handleTNResponse(res);
   } catch (err: any) {
     if (err.message?.startsWith('TOKEN_INVALID') ||
@@ -315,8 +321,11 @@ async function tnFetch(
     // CORS o network error → usar proxy Vercel
   }
 
+  const ctrl2 = new AbortController();
+  const tid2 = setTimeout(() => ctrl2.abort(), 15000);
   const proxyParams = new URLSearchParams({ storeId, token, path, ...params });
-  const proxyRes = await fetch(`/api/tiendanube?${proxyParams}`);
+  const proxyRes = await fetch(`/api/tiendanube?${proxyParams}`, { signal: ctrl2.signal });
+  clearTimeout(tid2);
   return await handleTNResponse(proxyRes);
 }
 
