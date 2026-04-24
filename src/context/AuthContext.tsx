@@ -18,10 +18,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    const timeoutId = setTimeout(() => setIsLoading(false), 5000);
+
     // Obtiene sesión activa al montar
     supabase.auth.getSession().then(({ data }) => {
+      clearTimeout(timeoutId);
       setSession(data.session);
       setUser(data.session?.user ?? null);
+      setIsLoading(false);
+    }).catch(() => {
+      clearTimeout(timeoutId);
       setIsLoading(false);
     });
 
@@ -31,7 +37,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(sess?.user ?? null);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(timeoutId);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string): Promise<string | null> => {
