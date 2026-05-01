@@ -94,8 +94,9 @@ export default function Dashboard() {
   }, [metrics]);
 
   // Si el mes seleccionado no tiene datos, seleccionar el mes más reciente disponible
+  // (excepto si es el mes actual — puede que no haya órdenes todavía)
   useEffect(() => {
-    if (availableMonths.length > 0 && !availableMonths.includes(selectedMonthKey)) {
+    if (availableMonths.length > 0 && !availableMonths.includes(selectedMonthKey) && !isCurrentMonth) {
       const [y, m] = availableMonths[0].split('-').map(Number);
       setSelectedMonth({ month: m, year: y });
     }
