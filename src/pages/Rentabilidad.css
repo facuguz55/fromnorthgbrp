@@ -312,3 +312,207 @@
     align-items: flex-start;
   }
 }
+
+/* ── Settings btn active state ───────────────────────────── */
+.rent-btn-active {
+  color: var(--accent-primary) !important;
+  border-color: rgba(6, 182, 212, 0.4) !important;
+  background: rgba(6, 182, 212, 0.1) !important;
+}
+
+/* ── Config panel ────────────────────────────────────────── */
+.rent-config-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.rent-config-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.15s;
+}
+
+.rent-config-card:last-child {
+  border-bottom: none;
+}
+
+.rent-config-card:hover {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.rent-config-icon {
+  flex-shrink: 0;
+  width: 54px;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+}
+
+.rent-config-icon-teal {
+  background: rgba(6, 182, 212, 0.1);
+  border-color: rgba(6, 182, 212, 0.2);
+  color: var(--accent-primary);
+}
+
+.rent-config-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.rent-config-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.rent-config-title-row h3 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.rent-config-status {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.rent-config-status-auto {
+  background: rgba(99, 102, 241, 0.1);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.rent-config-status-active {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--accent-success);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.rent-config-status-inactive {
+  background: rgba(100, 116, 139, 0.08);
+  color: var(--text-muted);
+  border: 1px solid rgba(100, 116, 139, 0.15);
+}
+
+.rent-config-desc {
+  font-size: 0.79rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.rent-config-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.2rem;
+}
+
+.rent-config-input-label {
+  font-size: 0.77rem;
+  color: var(--text-secondary, var(--text-muted));
+  font-weight: 500;
+}
+
+.rent-config-input-wrap {
+  display: flex;
+  align-items: stretch;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.rent-config-input-prefix {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding: 0 0.55rem;
+  border-right: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  align-items: center;
+}
+
+.rent-config-input {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.84rem;
+  font-weight: 700;
+  padding: 0.35rem 0.6rem;
+  width: 68px;
+  outline: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.rent-config-input::-webkit-outer-spin-button,
+.rent-config-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.rent-config-save-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.35rem 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.rent-config-save-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--border-highlight);
+}
+
+.rent-config-pill {
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  width: fit-content;
+}
+
+.rent-config-hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  opacity: 0.65;
+}
+
+@media (max-width: 600px) {
+  .rent-config-card {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .rent-config-icon {
+    width: 44px;
+    height: 44px;
+  }
+}

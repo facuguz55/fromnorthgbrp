@@ -1,5 +1,6 @@
 import { fetchMetaInsightsByDateRange } from './metaAdsService';
 import { getSettings, META_ACCOUNTS } from './dataService';
+import type { RentabilidadConfig } from './dataService';
 
 // ── Constantes de negocio ───────────────────────────────────────────────
 
@@ -29,6 +30,7 @@ export interface DiaRentabilidad {
   costoEnvio: number;
   costoAgencia: number;
   costoComision: number;
+  costoImpuestos: number;
   inversionMetaARS: number;
   inversionMetaUSD: number;
   totalCostos: number;
@@ -49,6 +51,7 @@ export interface ResumenRentabilidad {
   costoEnvioTotal: number;
   costoAgenciaTotal: number;
   costoComisionTotal: number;
+  costoImpuestosTotal: number;
   inversionMetaARSTotal: number;
   inversionMetaUSDTotal: number;
   totalCostosTotal: number;
@@ -222,13 +225,17 @@ async function fetchMetaSpendByDay(
 
 // ── Main computation ────────────────────────────────────────────────
 
+const DEFAULT_CONFIG: RentabilidadConfig = { impuestoPct: 0, customPayComision: 0, customPayImpuesto: 0 };
+
 function buildDia(
   fechaISO: string,
   orders: TNOrder[],
   metaARS: number,
   usdtPrice: number,
+  config: RentabilidadConfig = DEFAULT_CONFIG,
 ): DiaRentabilidad {
   let promoA = 0, promoB = 0;
+  let promoA_custom = 0, promoB_custom = 0;
   let costoComision = 0;
   const mp = { mercadoPago: 0, pagoNube: 0, otros: 0 };
 
@@ -236,25 +243,35 @@ function buildDia(
     if (o.payment_status !== 'paid' && o.payment_status !== 'authorized') continue;
     const promo = detectPromo(o.products);
     if (!promo) continue;
-    if (promo === 'A') promoA++;
-    else promoB++;
-    costoComision += calcComisionOrden(o);
     const canal = detectMetodoPago(o.payment_details?.method);
     mp[canal]++;
+    if (canal === 'otros') {
+      if (promo === 'A') promoA_custom++;
+      else promoB_custom++;
+      costoComision += parseFloat(o.total) * (config.customPayComision / 100);
+    } else {
+      costoComision += calcComisionOrden(o);
+    }
+    if (promo === 'A') promoA++;
+    else promoB++;
   }
 
-  const totalPromos     = promoA + promoB;
-  const facturado       = promoA * PRECIO_PROMO_A + promoB * PRECIO_PROMO_B;
-  const costoMercaderia = promoA * COSTO_MERCH_PROMO_A + promoB * COSTO_MERCH_PROMO_B;
-  const costoEnvio      = totalPromos * COSTO_ENVIO_POR_PROMO;
-  const costoAgencia    = totalPromos * COSTO_AGENCIA_POR_PROMO;
+  const totalPromos      = promoA + promoB;
+  const facturado        = promoA * PRECIO_PROMO_A + promoB * PRECIO_PROMO_B;
+  const facturadoCustom  = promoA_custom * PRECIO_PROMO_A + promoB_custom * PRECIO_PROMO_B;
+  const facturadoTN      = facturado - facturadoCustom;
+  const costoMercaderia  = promoA * COSTO_MERCH_PROMO_A + promoB * COSTO_MERCH_PROMO_B;
+  const costoEnvio       = totalPromos * COSTO_ENVIO_POR_PROMO;
+  const costoAgencia     = totalPromos * COSTO_AGENCIA_POR_PROMO;
   const inversionMetaARS = metaARS;
   const inversionMetaUSD = usdtPrice > 0 ? metaARS / usdtPrice : 0;
-  const totalCostos     = costoMercaderia + costoEnvio + costoAgencia + costoComision + inversionMetaARS;
-  const gananciaNeta    = facturado - totalCostos;
-  const margenPct       = facturado > 0 ? (gananciaNeta / facturado) * 100 : 0;
-  const cpa             = totalPromos > 0 ? inversionMetaARS / totalPromos : 0;
-  const roas            = inversionMetaARS > 0 ? facturado / inversionMetaARS : 0;
+  const costoImpuestos   = facturadoTN * (config.impuestoPct / 100)
+                         + facturadoCustom * (config.customPayImpuesto / 100);
+  const totalCostos      = costoMercaderia + costoEnvio + costoAgencia + costoComision + inversionMetaARS + costoImpuestos;
+  const gananciaNeta     = facturado - totalCostos;
+  const margenPct        = facturado > 0 ? (gananciaNeta / facturado) * 100 : 0;
+  const cpa              = totalPromos > 0 ? inversionMetaARS / totalPromos : 0;
+  const roas             = inversionMetaARS > 0 ? facturado / inversionMetaARS : 0;
 
   return {
     fecha: toARDateLabel(fechaISO),
@@ -267,6 +284,7 @@ function buildDia(
     costoEnvio,
     costoAgencia,
     costoComision,
+    costoImpuestos,
     inversionMetaARS,
     inversionMetaUSD,
     totalCostos,
@@ -284,6 +302,7 @@ function buildResumen(dias: DiaRentabilidad[]): ResumenRentabilidad {
   const costoEnvioTotal       = dias.reduce((s, d) => s + d.costoEnvio, 0);
   const costoAgenciaTotal     = dias.reduce((s, d) => s + d.costoAgencia, 0);
   const costoComisionTotal    = dias.reduce((s, d) => s + d.costoComision, 0);
+  const costoImpuestosTotal   = dias.reduce((s, d) => s + d.costoImpuestos, 0);
   const inversionMetaARSTotal = dias.reduce((s, d) => s + d.inversionMetaARS, 0);
   const inversionMetaUSDTotal = dias.reduce((s, d) => s + d.inversionMetaUSD, 0);
   const totalCostosTotal      = dias.reduce((s, d) => s + d.totalCostos, 0);
@@ -301,6 +320,7 @@ function buildResumen(dias: DiaRentabilidad[]): ResumenRentabilidad {
     costoEnvioTotal,
     costoAgenciaTotal,
     costoComisionTotal,
+    costoImpuestosTotal,
     inversionMetaARSTotal,
     inversionMetaUSDTotal,
     totalCostosTotal,
@@ -332,6 +352,7 @@ export async function fetchRentabilidadRange(
   since: string,
   until: string,
   usdtPrice: number,
+  config: RentabilidadConfig = DEFAULT_CONFIG,
 ): Promise<{ dias: DiaRentabilidad[]; resumen: ResumenRentabilidad; metaError: boolean }> {
   let metaSpendByDay: Record<string, number> = {};
   let metaError = false;
@@ -346,7 +367,7 @@ export async function fetchRentabilidadRange(
   const dias = allDays.map(fechaISO => {
     const dayOrders = filterOrdersByDay(orders, fechaISO);
     const metaARS   = metaSpendByDay[fechaISO] ?? 0;
-    return buildDia(fechaISO, dayOrders, metaARS, usdtPrice);
+    return buildDia(fechaISO, dayOrders, metaARS, usdtPrice, config);
   });
 
   return { dias, resumen: buildResumen(dias), metaError };

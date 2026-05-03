@@ -120,6 +120,28 @@ export async function fetchSheetByGid(
   return { headers, rows };
 }
 
+export interface RentabilidadConfig {
+  impuestoPct: number;
+  customPayComision: number;
+  customPayImpuesto: number;
+}
+
+const RENT_CONFIG_KEY = 'rent_config';
+
+export function getRentConfig(): RentabilidadConfig {
+  try {
+    const saved = localStorage.getItem(RENT_CONFIG_KEY);
+    if (!saved) return { impuestoPct: 0, customPayComision: 0, customPayImpuesto: 0 };
+    return { impuestoPct: 0, customPayComision: 0, customPayImpuesto: 0, ...JSON.parse(saved) };
+  } catch {
+    return { impuestoPct: 0, customPayComision: 0, customPayImpuesto: 0 };
+  }
+}
+
+export function saveRentConfig(config: RentabilidadConfig): void {
+  localStorage.setItem(RENT_CONFIG_KEY, JSON.stringify(config));
+}
+
 /** Cuenta las filas de datos (sin header) en una hoja por GID */
 export async function fetchSheetRowCount(
   googleSheetsUrl: string,

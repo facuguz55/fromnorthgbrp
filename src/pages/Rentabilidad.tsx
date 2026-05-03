@@ -3,9 +3,13 @@ import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { TrendingUp, RefreshCw, DollarSign, TrendingDown, Package, BarChart2, Target, Percent } from 'lucide-react';
+import {
+  TrendingUp, RefreshCw, DollarSign, TrendingDown, Package,
+  BarChart2, Target, Percent, Settings, Store, Receipt, Handshake,
+} from 'lucide-react';
 import MetricCard from '../components/MetricCard';
-import { getSettings } from '../services/dataService';
+import { getSettings, getRentConfig, saveRentConfig } from '../services/dataService';
+import type { RentabilidadConfig } from '../services/dataService';
 import { fetchTNMetrics } from '../services/tiendanubeService';
 import type { TNOrder } from '../services/tiendanubeService';
 import {
@@ -51,6 +55,12 @@ const RentTooltip = ({ active, payload, label }: any) => {
         <span>{fmtARS(d.costoEnvio + d.costoAgencia)}</span>
         <span style={{ color: '#f97316' }}>Comisión</span>
         <span>{fmtARS(d.costoComision)}</span>
+        {d.costoImpuestos > 0 && (
+          <>
+            <span style={{ color: '#a78bfa' }}>Impuestos</span>
+            <span>{fmtARS(d.costoImpuestos)}</span>
+          </>
+        )}
         <span>Promos</span>
         <span>{d.totalPromos} ({d.promoA}A + {d.promoB}B)</span>
         <span>Margen</span>
@@ -63,23 +73,32 @@ const RentTooltip = ({ active, payload, label }: any) => {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Rentabilidad() {
-  const [periodo, setPeriodo]               = useState<Periodo>('diario');
-  const [fecha, setFecha]                   = useState(todayARISO());
-  const [dias, setDias]                     = useState<DiaRentabilidad[]>([]);
-  const [resumen, setResumen]               = useState<ResumenRentabilidad | null>(null);
-  const [loading, setLoading]               = useState(true);
-  const [error, setError]                   = useState<string | null>(null);
-  const [metaError, setMetaError]           = useState(false);
-  const [usdtPrice, setUsdtPrice]           = useState(0);
-  const [usdtError, setUsdtError]           = useState(false);
-  const [orders, setOrders]                 = useState<TNOrder[]>([]);
+  const [periodo, setPeriodo]       = useState<Periodo>('diario');
+  const [fecha, setFecha]           = useState(todayARISO());
+  const [dias, setDias]             = useState<DiaRentabilidad[]>([]);
+  const [resumen, setResumen]       = useState<ResumenRentabilidad | null>(null);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState<string | null>(null);
+  const [metaError, setMetaError]   = useState(false);
+  const [usdtPrice, setUsdtPrice]   = useState(0);
+  const [usdtError, setUsdtError]   = useState(false);
+  const [orders, setOrders]         = useState<TNOrder[]>([]);
+  const [configOpen, setConfigOpen] = useState(false);
+  const [config, setConfig]         = useState<RentabilidadConfig>(() => getRentConfig());
+  const [editConfig, setEditConfig] = useState<RentabilidadConfig>(() => getRentConfig());
 
-  const loadData = useCallback(async (currentOrders: TNOrder[], price: number, per: Periodo, f: string) => {
+  const loadData = useCallback(async (
+    currentOrders: TNOrder[],
+    price: number,
+    per: Periodo,
+    f: string,
+    cfg: RentabilidadConfig,
+  ) => {
     setLoading(true);
     setError(null);
     try {
       const { since, until } = getRangeForPeriodo(per, f);
-      const { dias: d, resumen: r, metaError: me } = await fetchRentabilidadRange(currentOrders, since, until, price);
+      const { dias: d, resumen: r, metaError: me } = await fetchRentabilidadRange(currentOrders, since, until, price, cfg);
       setDias(d);
       setResumen(r);
       setMetaError(me);
@@ -94,6 +113,7 @@ export default function Rentabilidad() {
     setLoading(true);
     setError(null);
     try {
+      const cfg = getRentConfig();
       const [{ price }, metrics] = await Promise.all([
         fetchUSDTPrice(),
         fetchTNMetrics(getSettings().tiendanubeStoreId, getSettings().tiendanubeToken),
@@ -102,7 +122,7 @@ export default function Rentabilidad() {
       setUsdtError(price === 0);
       setOrders(metrics.orders);
       const { since, until } = getRangeForPeriodo(periodo, fecha);
-      const { dias: d, resumen: r, metaError: me } = await fetchRentabilidadRange(metrics.orders, since, until, price);
+      const { dias: d, resumen: r, metaError: me } = await fetchRentabilidadRange(metrics.orders, since, until, price, cfg);
       setDias(d);
       setResumen(r);
       setMetaError(me);
@@ -117,7 +137,7 @@ export default function Rentabilidad() {
 
   useEffect(() => {
     if (orders.length === 0) return;
-    loadData(orders, usdtPrice, periodo, fecha);
+    loadData(orders, usdtPrice, periodo, fecha, config);
   }, [periodo, fecha]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRefresh = async () => {
@@ -132,7 +152,7 @@ export default function Rentabilidad() {
       setUsdtError(price === 0);
       setOrders(metrics.orders);
       const { since, until } = getRangeForPeriodo(periodo, fecha);
-      const { dias: d, resumen: r, metaError: me } = await fetchRentabilidadRange(metrics.orders, since, until, price);
+      const { dias: d, resumen: r, metaError: me } = await fetchRentabilidadRange(metrics.orders, since, until, price, config);
       setDias(d);
       setResumen(r);
       setMetaError(me);
@@ -143,19 +163,37 @@ export default function Rentabilidad() {
     }
   };
 
+  const handleSaveImpuesto = () => {
+    const newConfig = { ...config, impuestoPct: editConfig.impuestoPct };
+    saveRentConfig(newConfig);
+    setConfig(newConfig);
+    if (orders.length > 0) loadData(orders, usdtPrice, periodo, fecha, newConfig);
+  };
+
+  const handleSaveCustomPay = () => {
+    const newConfig = { ...config, customPayComision: editConfig.customPayComision, customPayImpuesto: editConfig.customPayImpuesto };
+    saveRentConfig(newConfig);
+    setConfig(newConfig);
+    if (orders.length > 0) loadData(orders, usdtPrice, periodo, fecha, newConfig);
+  };
+
   // ── Render helpers ──────────────────────────────────────────────────────────
 
   const roasColor = (v: number) => v >= 2 ? 'var(--accent-success)' : v >= 1 ? 'var(--accent-warning)' : 'var(--accent-danger)';
   const gananciaColor = (v: number) => v > 0 ? 'var(--accent-success)' : v < 0 ? 'var(--accent-danger)' : 'var(--accent-warning)';
 
+  const impuestoActivo = config.impuestoPct > 0 || config.customPayImpuesto > 0;
+  const customPayActivo = config.customPayComision > 0 || config.customPayImpuesto > 0;
+
   const chartData = dias.map(d => ({
     ...d,
-    name: d.fecha.slice(0, 5),
-    costosMerch:   d.costoMercaderia,
-    costosEnvio:   d.costoEnvio + d.costoAgencia,
-    costosMeta:    d.inversionMetaARS,
-    gananciaNeta:  d.gananciaNeta,
-    facturado:     d.facturado,
+    name:            d.fecha.slice(0, 5),
+    costosMerch:     d.costoMercaderia,
+    costosEnvio:     d.costoEnvio + d.costoAgencia,
+    costosMeta:      d.inversionMetaARS,
+    costosImpuesto:  d.costoImpuestos,
+    gananciaNeta:    d.gananciaNeta,
+    facturado:       d.facturado,
   }));
 
   return (
@@ -194,11 +232,128 @@ export default function Rentabilidad() {
             max={todayARISO()}
             onChange={e => setFecha(e.target.value)}
           />
+          <button
+            className={`rent-refresh-btn${configOpen ? ' rent-btn-active' : ''}`}
+            onClick={() => setConfigOpen(v => !v)}
+            title="Configurar costos"
+          >
+            <Settings size={16} />
+          </button>
           <button className="rent-refresh-btn" onClick={handleRefresh} disabled={loading}>
             <RefreshCw size={16} className={loading ? 'spinning' : ''} />
           </button>
         </div>
       </div>
+
+      {/* ── Panel de configuración ── */}
+      {configOpen && (
+        <div className="rent-config-panel glass-panel">
+
+          {/* Card 1: Comisiones TN */}
+          <div className="rent-config-card">
+            <div className="rent-config-icon">
+              <Store size={24} />
+            </div>
+            <div className="rent-config-body">
+              <div className="rent-config-title-row">
+                <h3>Comisiones de pago de TiendaNube</h3>
+                <span className="rent-config-status rent-config-status-auto">● Automático</span>
+              </div>
+              <p className="rent-config-desc">
+                Comisiones de las pasarelas de pago (MercadoPago, PagoNube, GoCuotas, etc.) calculadas por método y cuotas. Incluye IVA sobre la comisión.
+              </p>
+              <span className="rent-config-pill">Configurado</span>
+            </div>
+          </div>
+
+          {/* Card 2: Impuestos */}
+          <div className="rent-config-card">
+            <div className="rent-config-icon">
+              <Receipt size={24} />
+            </div>
+            <div className="rent-config-body">
+              <div className="rent-config-title-row">
+                <h3>Impuestos de la tienda</h3>
+                <span className={`rent-config-status ${config.impuestoPct > 0 ? 'rent-config-status-active' : 'rent-config-status-inactive'}`}>
+                  {config.impuestoPct > 0 ? '● Configurado' : '● Sin configurar'}
+                </span>
+              </div>
+              <p className="rent-config-desc">
+                Porcentaje sobre el total facturado que se destina a impuestos. (Ej: IVA, IIBB y otros impuestos a pagar)
+              </p>
+              <div className="rent-config-inputs">
+                <span className="rent-config-input-label">Impuesto</span>
+                <div className="rent-config-input-wrap">
+                  <span className="rent-config-input-prefix">%</span>
+                  <input
+                    type="number"
+                    className="rent-config-input"
+                    value={editConfig.impuestoPct}
+                    min={0}
+                    max={100}
+                    step={0.1}
+                    onChange={e => setEditConfig(prev => ({ ...prev, impuestoPct: parseFloat(e.target.value) || 0 }))}
+                  />
+                </div>
+                <button className="rent-config-save-btn" onClick={handleSaveImpuesto}>
+                  Guardar
+                </button>
+              </div>
+              <span className="rent-config-hint">Promedio 10 — 15%</span>
+            </div>
+          </div>
+
+          {/* Card 3: Pagos Personalizados */}
+          <div className="rent-config-card">
+            <div className="rent-config-icon rent-config-icon-teal">
+              <Handshake size={24} />
+            </div>
+            <div className="rent-config-body">
+              <div className="rent-config-title-row">
+                <h3>Pagos Personalizados</h3>
+                <span className={`rent-config-status ${customPayActivo ? 'rent-config-status-active' : 'rent-config-status-inactive'}`}>
+                  {customPayActivo ? '● Configurado' : '● Sin configurar'}
+                </span>
+              </div>
+              <p className="rent-config-desc">
+                Comisión por transacción e impuestos al usar un método de pago no gestionado por TiendaNube. Este valor de impuestos sustituirá el de la tienda para ese método de pago.
+              </p>
+              <div className="rent-config-inputs">
+                <span className="rent-config-input-label">Comisión</span>
+                <div className="rent-config-input-wrap">
+                  <span className="rent-config-input-prefix">%</span>
+                  <input
+                    type="number"
+                    className="rent-config-input"
+                    value={editConfig.customPayComision}
+                    min={0}
+                    max={100}
+                    step={0.01}
+                    onChange={e => setEditConfig(prev => ({ ...prev, customPayComision: parseFloat(e.target.value) || 0 }))}
+                  />
+                </div>
+                <span className="rent-config-input-label">Impuesto</span>
+                <div className="rent-config-input-wrap">
+                  <span className="rent-config-input-prefix">%</span>
+                  <input
+                    type="number"
+                    className="rent-config-input"
+                    value={editConfig.customPayImpuesto}
+                    min={0}
+                    max={100}
+                    step={0.01}
+                    onChange={e => setEditConfig(prev => ({ ...prev, customPayImpuesto: parseFloat(e.target.value) || 0 }))}
+                  />
+                </div>
+                <button className="rent-config-save-btn" onClick={handleSaveCustomPay}>
+                  Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      )}
 
       {/* ── Meta error warning ── */}
       {metaError && (
@@ -254,7 +409,7 @@ export default function Rentabilidad() {
             title="Costo Total"
             value={fmtARS(resumen.totalCostosTotal)}
             icon={<Package size={18} />}
-            subtitle={`Merc. ${fmtARSShort(resumen.costoMercaderiaTotal)} | Envío ${fmtARSShort(resumen.costoEnvioTotal)} | Ag. ${fmtARSShort(resumen.costoAgenciaTotal)} | Com. ${fmtARSShort(resumen.costoComisionTotal)}`}
+            subtitle={`Merc. ${fmtARSShort(resumen.costoMercaderiaTotal)} | Envío ${fmtARSShort(resumen.costoEnvioTotal)} | Ag. ${fmtARSShort(resumen.costoAgenciaTotal)} | Com. ${fmtARSShort(resumen.costoComisionTotal)}${resumen.costoImpuestosTotal > 0 ? ` | Imp. ${fmtARSShort(resumen.costoImpuestosTotal)}` : ''}`}
           />
           <div className="metric-card glass-panel" style={{ borderLeftColor: roasColor(resumen.roasPromedio) }}>
             <div className="metric-header">
@@ -294,11 +449,14 @@ export default function Rentabilidad() {
               <YAxis tickFormatter={fmtARSShort} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} width={72} />
               <Tooltip content={<RentTooltip />} />
               <Legend wrapperStyle={{ fontSize: 12, color: 'var(--text-muted)' }} />
-              <Bar dataKey="costosMerch"   name="Mercadería"    stackId="costos" fill="#8b5cf6" />
-              <Bar dataKey="costosEnvio"   name="Envío+Agencia" stackId="costos" fill="#64748b" />
-              <Bar dataKey="costosMeta"    name="Meta Ads"      stackId="costos" fill="#f59e0b" />
-              <Bar dataKey="gananciaNeta"  name="Ganancia Neta" fill="#10b981" opacity={0.85} />
-              <Line dataKey="facturado"    name="Facturado"     type="monotone" stroke="#06b6d4" strokeWidth={2} dot={false} />
+              <Bar dataKey="costosMerch"    name="Mercadería"    stackId="costos" fill="#8b5cf6" />
+              <Bar dataKey="costosEnvio"    name="Envío+Agencia" stackId="costos" fill="#64748b" />
+              <Bar dataKey="costosMeta"     name="Meta Ads"      stackId="costos" fill="#f59e0b" />
+              {impuestoActivo && (
+                <Bar dataKey="costosImpuesto" name="Impuestos" stackId="costos" fill="#a78bfa" />
+              )}
+              <Bar dataKey="gananciaNeta"   name="Ganancia Neta" fill="#10b981" opacity={0.85} />
+              <Line dataKey="facturado"     name="Facturado"     type="monotone" stroke="#06b6d4" strokeWidth={2} dot={false} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -321,6 +479,7 @@ export default function Rentabilidad() {
                   <th>Agencia</th>
                   <th>Comisión</th>
                   <th>Meta (ARS)</th>
+                  {impuestoActivo && <th>Impuestos</th>}
                   <th>Total Costos</th>
                   <th>Ganancia</th>
                   <th>Margen %</th>
@@ -339,6 +498,7 @@ export default function Rentabilidad() {
                     <td>{fmtARS(d.costoAgencia)}</td>
                     <td>{fmtARS(d.costoComision)}</td>
                     <td>{fmtARS(d.inversionMetaARS)}</td>
+                    {impuestoActivo && <td>{fmtARS(d.costoImpuestos)}</td>}
                     <td>{fmtARS(d.totalCostos)}</td>
                     <td style={{ color: gananciaColor(d.gananciaNeta) }}>{fmtARS(d.gananciaNeta)}</td>
                     <td style={{ color: gananciaColor(d.gananciaNeta) }}>{d.margenPct.toFixed(1)}%</td>
@@ -358,6 +518,7 @@ export default function Rentabilidad() {
                     <td>{fmtARS(resumen.costoAgenciaTotal)}</td>
                     <td>{fmtARS(resumen.costoComisionTotal)}</td>
                     <td>{fmtARS(resumen.inversionMetaARSTotal)}</td>
+                    {impuestoActivo && <td>{fmtARS(resumen.costoImpuestosTotal)}</td>}
                     <td>{fmtARS(resumen.totalCostosTotal)}</td>
                     <td style={{ color: gananciaColor(resumen.gananciaNeta) }}>{fmtARS(resumen.gananciaNeta)}</td>
                     <td style={{ color: gananciaColor(resumen.gananciaNeta) }}>{resumen.margenPct.toFixed(1)}%</td>
